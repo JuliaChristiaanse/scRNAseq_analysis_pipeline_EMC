@@ -22,7 +22,7 @@ if __name__ == '__main__':
     sample_dir = 'C:/Users/julia/scRNAseq_Analysis_project/samples_dir'
     #sample_names = ['BL_N'] 
     sample_names = [folder.name for folder in os.scandir(sample_dir) if folder.is_dir()]
-    output_dir = 'C:/Users/julia/Project/output_dir'
+    output_dir = 'C:/Users/julia/Project/output_dir_doublets_removed'
     
     if os.path.exists(output_dir):
         raise ValueError('Your output directory already exists! Please rename or remove it :)')

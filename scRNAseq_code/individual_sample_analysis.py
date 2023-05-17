@@ -5,7 +5,6 @@ import math
 import multiprocessing as mp
 
 # Set scanpy settings, turned figure settings off for now
-# To do: set 'magma' as standard color map for the pipeline.
 sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
 sc.logging.print_header()
 # sc.settings.set_figure_params(dpi=150, facecolor='white')
@@ -61,13 +60,23 @@ class Sample_Analysis:
                       title='Amount of genes by counts '+self.sample_name, color_map='Blues', show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'ngenes_by_counts'+self.sample_name+'.png'))
 
-    
+
+    # Detect doublets in dataset
+    def detect_doublets(self):
+        sc.external.pp.scrublet(self.adata, adata_sim=None, batch_key=None, sim_doublet_ratio=2.0, expected_doublet_rate=0.06, stdev_doublet_rate=0.02, synthetic_doublet_umi_subsampling=1.0, knn_dist_metric='euclidean',
+                         normalize_variance=True, log_transform=False, mean_center=True, n_prin_comps=30, use_approx_neighbors=True, get_doublet_neighbor_parents=False, n_neighbors=None, threshold=None,
+                           verbose=True, copy=False, random_state=0) # auto-set threshold. Do not manually generate doublets.
+        sc.external.pl.scrublet_score_distribution(self.adata, show=False)
+        plt.savefig(os.path.join(self.sample_output, 'QC', 'doublet_score_distribution_'+self.sample_name+'.png'))
+        self.adata.obs['doublet_info'] = self.adata.obs["predicted_doublet"].astype(str)
+
+
     # Subset, Regress out bad stuff and normalize, find variablefeatures and do some other stuff like SCTransform
     def normalization_HVG(self):
         self.adata = self.adata[self.adata.obs.pct_counts_mt < 20, :] # EDIT 24-4-2023: slice away MT- counts that are too high
+        self.detect_doublets()
         sc.pp.normalize_total(self.adata, target_sum=1e4) # EDIT: removed this: still included highly expressed data for now
         sc.pp.log1p(self.adata)
-        # sc.pp.highly_variable_genes(self.adata, flavor='cell_ranger', n_top_genes=2000, subset=False)
         sc.pp.highly_variable_genes(self.adata, flavor='cell_ranger', subset=False) # EDIT: added this line for testing
         sc.pl.highly_variable_genes(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Highly_variable_genes_'+self.sample_name+'.png'))
@@ -96,11 +105,14 @@ class Sample_Analysis:
         title=f'Unsupervised Leiden Cluster {self.sample_name}'
         sc.pl.umap(self.adata, color=['leiden'], title=title, legend_loc='on data', legend_fontsize=8, show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Unsupervised_UMAP_'+self.sample_name+'.png'))
+        sc.pl.umap(self.adata, color=['doublet_score', 'doublet_info'], show=False)
+        plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Doublet_umap'+self.sample_name+'.png'))
 
 
     # Calculate differentially expressed genes
     def calculate_DE_genes(self):
         self.adata_DE = self.adata.raw.to_adata()
+        self.adata_DE = self.adata_DE[self.adata_DE.obs['doublet_info'] == 'False',:] # remove the doublets before doing DEA
         sc.tl.rank_genes_groups(self.adata_DE, 'leiden', method='wilcoxon', corr_method='bonferroni', key='wilcoxon', pts=True, )
         sc.tl.filter_rank_genes_groups(self.adata_DE, groupby='leiden', min_in_group_fraction=0.1, min_fold_change=1)
         sc.pl.rank_genes_groups(self.adata_DE, sharey=False, show=False)
@@ -124,8 +136,8 @@ class Sample_Analysis:
             }
         self.perform_DEA(markergenes)
         
+        
     # Perform differential expression analysis
-    # Look into running this in parallel
     def perform_DEA(self, markergenes):
         os.chdir(os.path.join(self.sample_output, 'DEA'))
         for set in markergenes.items():
