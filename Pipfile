@@ -12,6 +12,9 @@ scanpy = "*"
 leidenalg = "*"
 scrublet = "*"
 ipykernel = "*"
+scanorama = "*"
+bbknn = "*"
+harmonypy = "*"
 
 [dev-packages]
 
