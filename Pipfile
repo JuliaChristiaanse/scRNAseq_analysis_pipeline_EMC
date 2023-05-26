@@ -13,8 +13,8 @@ leidenalg = "*"
 scrublet = "*"
 ipykernel = "*"
 scanorama = "*"
-bbknn = "*"
 harmonypy = "*"
+bbknn = {editable = true, git = "https://github.com/Teichlab/bbknn.git"}
 
 [dev-packages]
 
