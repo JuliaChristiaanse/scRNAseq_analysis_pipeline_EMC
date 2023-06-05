@@ -5,8 +5,8 @@ import math
 import multiprocessing as mp
 
 # Set scanpy settings, turned figure settings off for now
-sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
-sc.logging.print_header()
+# sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
+# sc.logging.print_header()
 # sc.settings.set_figure_params(dpi=150, facecolor='white')
 
 class Sample_Analysis:
@@ -69,6 +69,8 @@ class Sample_Analysis:
         sc.external.pl.scrublet_score_distribution(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'doublet_score_distribution_'+self.sample_name+'.png'))
         self.adata.obs['doublet_info'] = self.adata.obs["predicted_doublet"].astype(str)
+        # self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:] # edit: needs to be on raw data. remove doublets earlier. right after detection.
+
 
 
     # Subset, Regress out bad stuff and normalize, find variablefeatures and do some other stuff like SCTransform
@@ -81,6 +83,8 @@ class Sample_Analysis:
         sc.pl.highly_variable_genes(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Highly_variable_genes_'+self.sample_name+'.png'))
         self.adata.raw = self.adata
+        # better to remove doublets here?
+        # self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         self.adata = self.adata[:, self.adata.var.highly_variable] # Actually do the slicing
         sc.pp.regress_out(self.adata, ['total_counts', 'pct_counts_mt']) # regress out sequencing depth and % MT-RNA
         sc.pp.scale(self.adata)
@@ -89,6 +93,7 @@ class Sample_Analysis:
     # Run a PCA and plot output
     def run_PCA(self):
         sc.tl.pca(self.adata, n_comps=50)       # Create 50 components
+        self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', 'PCA_'+self.sample_name+'.h5ad'))
         sc.pl.pca(self.adata, annotate_var_explained=True, na_color='#9ADCFF', title=f'PCA scoringsplot {self.sample_name}', show=False)
         plt.savefig(os.path.join(self.sample_output, 'PCA', 'PCA_Scores_'+self.sample_name+'.png'))
         sc.pl.pca_loadings(self.adata, components=[1,2], show=False) # Only show first 2.
@@ -110,44 +115,37 @@ class Sample_Analysis:
 
 
     # Calculate differentially expressed genes
-    def calculate_DE_genes(self):
-        self.adata_DE = self.adata.raw.to_adata()
-        self.adata_DE = self.adata_DE[self.adata_DE.obs['doublet_info'] == 'False',:] # remove the doublets before doing DEA
-        sc.tl.rank_genes_groups(self.adata_DE, 'leiden', method='wilcoxon', corr_method='bonferroni', key='wilcoxon', pts=True, )
-        sc.tl.filter_rank_genes_groups(self.adata_DE, groupby='leiden', min_in_group_fraction=0.1, min_fold_change=1)
-        sc.pl.rank_genes_groups(self.adata_DE, sharey=False, show=False)
-        plt.savefig(os.path.join(self.sample_output, 'DEA', 'DEA_wilcoxon'+self.sample_name+'.png'))
-        self.cluster = range(len(self.adata_DE.obs['leiden'].unique()))
+    def calculate_DE_genes(self, adata, output, full_name):
+        #self.adata_DE = adata.raw.to_adata()
+        #self.adata_DE = self.adata_DE[self.adata_DE.obs['doublet_info'] == 'False',:] # remove the doublets before doing DEA
+        sc.tl.rank_genes_groups(adata, 'leiden', method='wilcoxon', corr_method='bonferroni', key='wilcoxon', pts=True, )
+        sc.tl.filter_rank_genes_groups(adata, groupby='leiden', min_in_group_fraction=0.1, min_fold_change=1)
+        sc.pl.rank_genes_groups(adata, sharey=False, show=False)
+        plt.savefig(os.path.join(output, 'DEA', full_name+'_DEA_wilcoxon.png'))
+        self.cluster = range(len(adata.obs['leiden'].unique()))
         self.cluster = [str(x) for x in self.cluster]
-        rank_genes_df = sc.get.rank_genes_groups_df(self.adata_DE, group=self.cluster, key='rank_genes_groups', pval_cutoff=0.5, log2fc_min=0, log2fc_max=None, gene_symbols=None)
-        rank_genes_df.to_csv(os.path.join(self.sample_output, 'DEA', 'rank_genes_df.tsv'), sep='\t', encoding='utf-8')
-
+        rank_genes_df = sc.get.rank_genes_groups_df(adata, group=self.cluster, key='rank_genes_groups', pval_cutoff=0.5, log2fc_min=0, log2fc_max=None, gene_symbols=None)
+        rank_genes_df.to_csv(os.path.join(output, 'DEA', full_name+'_rank_genes_df.tsv'), sep='\t', encoding='utf-8')
+        return self.cluster
 
     # Simple function that stores the markergenes, might be deleted later
-    def store_markergenes(self):
-        markergenes = {
-            'astrocyte_interest' : ["GFAP", "VIM", "S100B", "SOX9", "CD44", "AQP4", "ALDH1L1", "HIST1H4C", "FABP7", "SLC1A2", "SLC1A3", "GJA1", "APOE"], 
-            'astrocyte_mature' : ["CD44", "FABP7", "VIM", "SOX9", "TOP2A", "S100B", "GJA", "SLC1A3", "IGFBP7", "ALDH1L1", "APOE"],
-            'neuron_interest' : ["TUBB3", "MAP2", "CAMK2A", "GAD2", "NEUROG2", "SYN1", "RBFOX3", "GJA1"],
-            'neuron_mature' : ["NEUROG2", "DCX", "MAP2", "RBFOX3", "SYN1", "SNAP25", "SYT1", "APOE"],
-            'schema_psych_interest' : ["SETD1A", "CUL1", "XPO7", "TRIO", "CACNA1G", "SP4", "GRIA3", "GRIN2A", "HERC1", "RB1CC1", "HCN4", "AKAP11"],
-            'sloan_2017_interest' : ["AQP4", "ALDH1L1", "RANBP3L", "IGFBP7", "TOP2A", "TMSB15A", "NNAT", "HIST1H3B", "STMN2", "SYT1", "SNAP25", "SOX9", "CLU", "SLC1A3", "UBE2C", "NUSAP1", "PTPRZ1", "HOPX", "FAM107A", "AGT"],
-            'interneuron_interest' : ["SST", "PVALB", "GAD1"]
-            }
-        self.perform_DEA(markergenes)
+    def store_markergenes(self, adata, sample_output):
+        markergenes = {'neurons' : ['MAP2', 'DCX', 'NEUROG2', 'RBFOX3'],
+                       'astrocytes' : ['VIM', 'S100B', 'SOX9', 'FABP7']}
+        self.perform_DEA(markergenes, adata, sample_output)
         
         
     # Perform differential expression analysis
-    def perform_DEA(self, markergenes):
+    def perform_DEA(self, markergenes, adata, sample_output):
         os.chdir(os.path.join(self.sample_output, 'DEA'))
         for set in markergenes.items():
-            self.name, self.markers = set[0], self.checklist(set[1])
+            self.name, self.markers = set[0], self.checklist(adata, set[1])
             os.makedirs(self.name)
             dirname = 'individual_features'
-            parent = os.path.join(self.sample_output, 'DEA', self.name)
+            parent = os.path.join(sample_output, 'DEA', self.name)
             path = os.path.join(parent, dirname)
             os.makedirs(path)
-            self.features_plots(path)
+            self.features_plots(path, adata)
             self.big_features_plot()
             self.dotplots()
             self.violinplots()
@@ -155,10 +153,10 @@ class Sample_Analysis:
             self.tracksplot()
 
 
-    def checklist(self, markergenes_list):
+    def checklist(self, adata, markergenes_list):
         genes_passed = []
         for gene in markergenes_list:
-            match = self.adata_DE[:, self.adata_DE.var_names.str.match('^'+gene+'$')]
+            match = adata[:, adata.var_names.str.match('^'+gene+'$')]
             if match.n_vars > 0:
                 genes_passed.append(gene)
             else:
@@ -166,9 +164,9 @@ class Sample_Analysis:
         return genes_passed
 
 
-    def features_plots(self, path):
+    def features_plots(self, path, adata):
         for gene in self.markers:
-            sc.pl.scatter(self.adata_DE, color=gene, legend_loc='none', color_map='Blues', size=5, basis='umap', show=False)
+            sc.pl.scatter(adata, color=gene, legend_loc='none', color_map='Blues', size=5, basis='umap', show=False)
             plt.savefig(os.path.join(path, gene+'.png'))
 
 
@@ -221,6 +219,8 @@ class Sample_Analysis:
         df_vars.to_csv(self.sample_output+'/adata_vars', sep='\t', encoding='utf-8')
         self.run_PCA()
         self.unsupervised_clustering()
-        self.calculate_DE_genes()
-        self.store_markergenes()
+        self.adata_DE = self.adata.raw.to_adata()
+        self.adata_DE = self.adata_DE[self.adata_DE.obs['doublet_info'] == 'False',:]
+        self.calculate_DE_genes(self.adata_DE, self.sample_output, self.sample_name)
+        self.store_markergenes(self.adata_DE, self.sample_output)
         self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', self.sample_name+'.h5ad'))
