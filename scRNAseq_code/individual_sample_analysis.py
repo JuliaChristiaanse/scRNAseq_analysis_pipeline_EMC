@@ -1,24 +1,29 @@
 import os
 from matplotlib import pyplot as plt
 import scanpy as sc
-import math
-import multiprocessing as mp
+from differential_expression_analysis import Differential_Expression_Analysis as dea
 
 # Set scanpy settings, turned figure settings off for now
 # sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
 # sc.logging.print_header()
 # sc.settings.set_figure_params(dpi=150, facecolor='white')
 
+
+# TO DO: store doublet as layer? if we remove doublets as a filtering step BEFORE PCA,
+# We won't be able to plot the clustering plot, but if we leave it in, they will be present
+# in the sample integration. --> try out layer or remove umap plot. (umap plot requires leidenalg)
+
 class Sample_Analysis:
 
     # Init that sets variables, calls create_AnnData() method and runs all code below with run() method
-    def __init__(self, sample_dir, sample_name, output_dir):
+    def __init__(self, sample_dir, sample_name, output_dir, markerpath):
         self.sample_dir = sample_dir
         self.sample_name = sample_name
         self.output_dir = output_dir
         self.full_path = os.path.join(self.sample_dir, self.sample_name, 'filtered_feature_bc_matrix')
         self.sample_output = os.path.join(self.output_dir, self.sample_name)
         self.adata = self.create_AnnData()
+        self.markerpath = markerpath
         self.run()
 
 
@@ -69,8 +74,6 @@ class Sample_Analysis:
         sc.external.pl.scrublet_score_distribution(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'doublet_score_distribution_'+self.sample_name+'.png'))
         self.adata.obs['doublet_info'] = self.adata.obs["predicted_doublet"].astype(str)
-        # self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:] # edit: needs to be on raw data. remove doublets earlier. right after detection.
-
 
 
     # Subset, Regress out bad stuff and normalize, find variablefeatures and do some other stuff like SCTransform
@@ -82,9 +85,9 @@ class Sample_Analysis:
         sc.pp.highly_variable_genes(self.adata, flavor='cell_ranger', subset=False) # EDIT: added this line for testing
         sc.pl.highly_variable_genes(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Highly_variable_genes_'+self.sample_name+'.png'))
+        # better to remove doublets before calling raw data as last filtering step
+        self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         self.adata.raw = self.adata
-        # better to remove doublets here?
-        # self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         self.adata = self.adata[:, self.adata.var.highly_variable] # Actually do the slicing
         sc.pp.regress_out(self.adata, ['total_counts', 'pct_counts_mt']) # regress out sequencing depth and % MT-RNA
         sc.pp.scale(self.adata)
@@ -114,98 +117,6 @@ class Sample_Analysis:
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Doublet_umap'+self.sample_name+'.png'))
 
 
-    # Calculate differentially expressed genes
-    def calculate_DE_genes(self, adata, output, full_name):
-        #self.adata_DE = adata.raw.to_adata()
-        #self.adata_DE = self.adata_DE[self.adata_DE.obs['doublet_info'] == 'False',:] # remove the doublets before doing DEA
-        sc.tl.rank_genes_groups(adata, 'leiden', method='wilcoxon', corr_method='bonferroni', key='wilcoxon', pts=True, )
-        sc.tl.filter_rank_genes_groups(adata, groupby='leiden', min_in_group_fraction=0.1, min_fold_change=1)
-        sc.pl.rank_genes_groups(adata, sharey=False, show=False)
-        plt.savefig(os.path.join(output, 'DEA', full_name+'_DEA_wilcoxon.png'))
-        self.cluster = range(len(adata.obs['leiden'].unique()))
-        self.cluster = [str(x) for x in self.cluster]
-        rank_genes_df = sc.get.rank_genes_groups_df(adata, group=self.cluster, key='rank_genes_groups', pval_cutoff=0.5, log2fc_min=0, log2fc_max=None, gene_symbols=None)
-        rank_genes_df.to_csv(os.path.join(output, 'DEA', full_name+'_rank_genes_df.tsv'), sep='\t', encoding='utf-8')
-        return self.cluster
-
-    # Simple function that stores the markergenes, might be deleted later
-    def store_markergenes(self, adata, sample_output):
-        markergenes = {'neurons' : ['MAP2', 'DCX', 'NEUROG2', 'RBFOX3'],
-                       'astrocytes' : ['VIM', 'S100B', 'SOX9', 'FABP7']}
-        self.perform_DEA(markergenes, adata, sample_output)
-        
-        
-    # Perform differential expression analysis
-    def perform_DEA(self, markergenes, adata, sample_output):
-        os.chdir(os.path.join(self.sample_output, 'DEA'))
-        for set in markergenes.items():
-            self.name, self.markers = set[0], self.checklist(adata, set[1])
-            os.makedirs(self.name)
-            dirname = 'individual_features'
-            parent = os.path.join(sample_output, 'DEA', self.name)
-            path = os.path.join(parent, dirname)
-            os.makedirs(path)
-            self.features_plots(path, adata)
-            self.big_features_plot()
-            self.dotplots()
-            self.violinplots()
-            self.heatmap()
-            self.tracksplot()
-
-
-    def checklist(self, adata, markergenes_list):
-        genes_passed = []
-        for gene in markergenes_list:
-            match = adata[:, adata.var_names.str.match('^'+gene+'$')]
-            if match.n_vars > 0:
-                genes_passed.append(gene)
-            else:
-                pass
-        return genes_passed
-
-
-    def features_plots(self, path, adata):
-        for gene in self.markers:
-            sc.pl.scatter(adata, color=gene, legend_loc='none', color_map='Blues', size=5, basis='umap', show=False)
-            plt.savefig(os.path.join(path, gene+'.png'))
-
-
-    # Create a big features plot --> overview of all umaps 
-    def big_features_plot(self):
-        with plt.rc_context({'figure.figsize': (3, 3)}):
-            sc.pl.umap(self.adata_DE, color=self.markers, color_map='Blues', s=50, frameon=False, ncols=4, vmax='p99', show=False)
-            plt.savefig(os.path.join(self.sample_output, 'DEA', self.name, 'Big_Features_overview_'+self.sample_name+'.png'))
-
-
-    # Create Dotplot
-    def dotplots(self):
-        sc.pl.rank_genes_groups_dotplot(self.adata_DE, self.cluster, color_map='Blues', var_names=self.markers, show=False)
-        plt.savefig(os.path.join(self.sample_output, 'DEA', self.name, 'Dotplot_Dendogram'+self.sample_name+'.png'))
-
-
-    # Create Custom big violin plot with scanpy function & matplotlib    
-    def violinplots(self):
-        fig = plt.figure(figsize=(16, 16), constrained_layout=True)
-        fig.suptitle('Violin plots of marker gene set', fontsize=18)
-        gridspace = fig.add_gridspec(math.ceil(len(self.markers)/3), 3)
-        for n, ticker in enumerate(self.markers):
-            ax = fig.add_subplot(gridspace[n])
-            sc.pl.violin(self.adata_DE, keys=ticker, groupby='leiden', palette = 'Blues', show=False, ax=ax)
-            ax.set_title(ticker.upper())
-        plt.savefig(os.path.join(self.sample_output, 'DEA', self.name, 'Violin_Plots'+self.sample_name+'.png'))
-
-
-    # Create heatmap
-    def heatmap(self):
-        sc.pl.heatmap(self.adata_DE, var_names=self.markers, groupby='leiden', cmap='Blues', show=False)
-        plt.savefig(os.path.join(self.sample_output, 'DEA', self.name, 'Heatmap'+self.sample_name+'.png'))
-
-
-    # Create tracksplot
-    def tracksplot(self):
-        sc.pl.tracksplot(self.adata_DE, self.markers, 'leiden', log=False, color_map='Blues', show=False)
-        plt.savefig(os.path.join(self.sample_output, 'DEA', self.name, 'Tracksplot'+self.sample_name+'.png'))
-
 
     # run all functions at once and write AnnData
     def run(self):
@@ -220,7 +131,8 @@ class Sample_Analysis:
         self.run_PCA()
         self.unsupervised_clustering()
         self.adata_DE = self.adata.raw.to_adata()
-        self.adata_DE = self.adata_DE[self.adata_DE.obs['doublet_info'] == 'False',:]
-        self.calculate_DE_genes(self.adata_DE, self.sample_output, self.sample_name)
-        self.store_markergenes(self.adata_DE, self.sample_output)
-        self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', self.sample_name+'.h5ad'))
+        #self.adata_DE = self.adata_DE[self.adata_DE.obs['doublet_info'] == 'False',:] # remove this line remove doublets earlier
+        deado = dea(self.adata_DE, self.sample_output, self.sample_name, self.markerpath)
+        deado.perform_dea()
+        deado.basic_dea_plots()
+        #self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', self.sample_name+'.h5ad'))
