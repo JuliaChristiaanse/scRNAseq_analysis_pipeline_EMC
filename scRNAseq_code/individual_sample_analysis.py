@@ -3,15 +3,19 @@ from matplotlib import pyplot as plt
 import scanpy as sc
 from differential_expression_analysis import Differential_Expression_Analysis as dea
 
-# Set scanpy settings, turned figure settings off for now
-# sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
-# sc.logging.print_header()
-# sc.settings.set_figure_params(dpi=150, facecolor='white')
+#Set scanpy settings, turned figure settings off for now
+sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
+sc.logging.print_header()
+sc.settings.set_figure_params(dpi=150, facecolor='white')
 
 
 # TO DO: store doublet as layer? if we remove doublets as a filtering step BEFORE PCA,
 # We won't be able to plot the clustering plot, but if we leave it in, they will be present
 # in the sample integration. --> try out layer or remove umap plot. (umap plot requires leidenalg)
+
+# Might've solved this problem with adata itself as input for dea. idk why I didn't think of this sooner
+# Look into way to do this without error.
+# but use adata.raw.to_adata() for dea plots! Otherwise it wont find them
 
 class Sample_Analysis:
 
@@ -86,7 +90,7 @@ class Sample_Analysis:
         sc.pl.highly_variable_genes(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Highly_variable_genes_'+self.sample_name+'.png'))
         # better to remove doublets before calling raw data as last filtering step
-        self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
+        #self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         self.adata.raw = self.adata
         self.adata = self.adata[:, self.adata.var.highly_variable] # Actually do the slicing
         sc.pp.regress_out(self.adata, ['total_counts', 'pct_counts_mt']) # regress out sequencing depth and % MT-RNA
@@ -96,7 +100,7 @@ class Sample_Analysis:
     # Run a PCA and plot output
     def run_PCA(self):
         sc.tl.pca(self.adata, n_comps=50)       # Create 50 components
-        self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', 'PCA_'+self.sample_name+'.h5ad'))
+        #self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', 'PCA_'+self.sample_name+'.h5ad'))
         sc.pl.pca(self.adata, annotate_var_explained=True, na_color='#9ADCFF', title=f'PCA scoringsplot {self.sample_name}', show=False)
         plt.savefig(os.path.join(self.sample_output, 'PCA', 'PCA_Scores_'+self.sample_name+'.png'))
         sc.pl.pca_loadings(self.adata, components=[1,2], show=False) # Only show first 2.
@@ -130,9 +134,17 @@ class Sample_Analysis:
         df_vars.to_csv(self.sample_output+'/adata_vars', sep='\t', encoding='utf-8')
         self.run_PCA()
         self.unsupervised_clustering()
+        # remove doublets as a final step
+        # Q maurits: do this earlier because this is technically pre-processing
+        # the consequence of this is no UMAP plot after clustering with the doublets shown
+        # what is the better option?
+        self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
+
+        # Q maurits: in the beginning of this project you mentioned we need a seperate anndata object (name)
+        # for when we do DEA. Is this still the case or shall I work with layers ? so we can write this data away to a 
+        # h5ad file. I personally think not because we don't do anything with it afterwards?
         self.adata_DE = self.adata.raw.to_adata()
-        #self.adata_DE = self.adata_DE[self.adata_DE.obs['doublet_info'] == 'False',:] # remove this line remove doublets earlier
         deado = dea(self.adata_DE, self.sample_output, self.sample_name, self.markerpath)
         deado.perform_dea()
         deado.basic_dea_plots()
-        #self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', self.sample_name+'.h5ad'))
+        self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', self.sample_name+'.h5ad'))

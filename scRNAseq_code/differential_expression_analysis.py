@@ -3,6 +3,10 @@ from matplotlib import pyplot as plt
 import math
 import os
 
+sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
+sc.logging.print_header()
+sc.settings.set_figure_params(dpi=120, dpi_save=150, facecolor='white', color_map='Blues')
+
 class Differential_Expression_Analysis:
 
     def __init__(self, adata, output_path, full_sample_name, markerpath):
@@ -75,7 +79,7 @@ class Differential_Expression_Analysis:
         gridspace = fig.add_gridspec(math.ceil(len(markers)/3), 3)
         for n, ticker in enumerate(markers):
             ax = fig.add_subplot(gridspace[n])
-            sc.pl.violin(adata, keys=ticker, groupby='leiden', palette = 'Blues', show=False, ax=ax)
+            sc.pl.violin(adata, keys=ticker, groupby='leiden', palette='Blues', show=False, ax=ax)
             ax.set_title(ticker.upper())
         plt.savefig(os.path.join(path, 'DEA', name, 'Violin_Plots'+self.full_sample_name+'.png'))
 
@@ -97,6 +101,7 @@ class Differential_Expression_Analysis:
     # Create directories for the names'
     # Create plots & store away accordingly
     def basic_dea_plots(self):
+        # put self.adata self.adata.raw.to_adata() here.
         marker_dict = Differential_Expression_Analysis.read_markergenes(self, self.adata, self.markerpath)
         os.chdir(os.path.join(self.output_path, 'DEA'))
         for set in marker_dict.items():

@@ -27,7 +27,7 @@ if __name__ == '__main__':
     # Create directories and check if they exist.
     sample_dir = 'C:/Users/julia/scRNAseq_Analysis_project/samples_dir'
     sample_names = [folder.name for folder in os.scandir(sample_dir) if folder.is_dir()]
-    output_dir = 'C:/Users/julia/Project/Fulltest'
+    output_dir = 'C:/Users/julia/Project/newtest_umaps'
     markerpath = 'C:/Users/julia/Project/markergenes.txt'
 
     # give programm pointers as to which sample is co culture and which are mono culture
@@ -81,6 +81,6 @@ if __name__ == '__main__':
     finish = round((e-s),2)
 
     print("\n# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #\n",
-          f"PRE-PROCESSING, NORMALISATION & CLUSTERING FINISHED IN {finish} SECONDS!",
+          f"\t    PIPELINE FINISHED IN {finish} SECONDS!",
            "\n# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #\n")
-    print(f'YOUR FILES ARE HERE: {output_dir}\n')
+    print(f'♥ ♥ ♥ ♥   YOUR FILES ARE HERE: {output_dir}  ♥ ♥ ♥ ♥\n')
