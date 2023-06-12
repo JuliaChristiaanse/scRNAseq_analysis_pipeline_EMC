@@ -1,4 +1,5 @@
 Please make sure you have python 3.10.9 installed on your local machine before you follow these steps:
+- note: scanpy only works on python versions < 3.11
 
 Can be ran with the following code:
 - (optional) create a new folder
