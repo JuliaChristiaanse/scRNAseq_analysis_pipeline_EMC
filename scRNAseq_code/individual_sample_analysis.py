@@ -119,6 +119,8 @@ class Sample_Analysis:
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Unsupervised_UMAP_'+self.sample_name+'.png'))
         sc.pl.umap(self.adata, color=['doublet_score', 'doublet_info'], show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Doublet_umap'+self.sample_name+'.png'))
+        # remove doublets here? 
+        # write anndata object to h5ad file
 
 
 
@@ -139,10 +141,6 @@ class Sample_Analysis:
         # the consequence of this is no UMAP plot after clustering with the doublets shown
         # what is the better option?
         self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
-
-        # Q maurits: in the beginning of this project you mentioned we need a seperate anndata object (name)
-        # for when we do DEA. Is this still the case or shall I work with layers ? so we can write this data away to a 
-        # h5ad file. I personally think not because we don't do anything with it afterwards?
         self.adata_DE = self.adata.raw.to_adata()
         deado = dea(self.adata_DE, self.sample_output, self.sample_name, self.markerpath)
         deado.perform_dea()
