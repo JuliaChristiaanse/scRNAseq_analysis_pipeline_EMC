@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-numpy = "*"
 pandas = "*"
 matplotlib = "*"
 scikit-learn = "*"
@@ -14,7 +13,16 @@ scrublet = "*"
 ipykernel = "*"
 scanorama = "*"
 harmonypy = "*"
-bbknn = {editable = true, git = "https://github.com/Teichlab/bbknn.git"}
+ocat = "*"
+faiss-cpu = "*"
+seaborn = "*"
+scvi-tools = "*"
+numpy = "*"
+scarches = "*"
+anndata2ri = "*"
+rpy2 = "*"
+scnym = "*"
+tensorflow = "*"
 
 [dev-packages]
 

@@ -14,3 +14,5 @@ Can be ran with the following code:
 - select the pipenv as python interpreter and kernal for jupyter
 - All packages should be installed
 - Run code accordingly
+
+Change name of directory in settings.json to your current project directory.
