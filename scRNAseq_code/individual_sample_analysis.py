@@ -82,8 +82,8 @@ class Sample_Analysis:
 
     # Subset, Regress out bad stuff and normalize, find variablefeatures and do some other stuff like SCTransform
     def normalization_HVG(self):
-        self.adata = self.adata[self.adata.obs.pct_counts_mt < 20, :] # EDIT 24-4-2023: slice away MT- counts that are too high
         self.detect_doublets()
+        self.adata.layers['rawcounts'] = self.adata.X
         sc.pp.normalize_total(self.adata, target_sum=1e4) # EDIT: removed this: still included highly expressed data for now
         sc.pp.log1p(self.adata)
         sc.pp.highly_variable_genes(self.adata, flavor='cell_ranger', subset=False) # EDIT: added this line for testing

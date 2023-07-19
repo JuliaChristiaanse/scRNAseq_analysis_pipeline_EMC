@@ -68,9 +68,10 @@ class Differential_Expression_Analysis:
 
     # Create Dotplot
     def dotplots(self, path, markers, name, adata):
-        sc.pl.rank_genes_groups_dotplot(adata, self.cluster, color_map='Blues', var_names=markers, show=False)
+        sc.pl.rank_genes_groups_dotplot(adata, self.cluster, color_map='Blues',
+                                              var_names=markers, show=False)
         plt.savefig(os.path.join(path, 'DEA', name, 'Dotplot_Dendogram'+self.full_sample_name+'.png'))
-
+    
 
     # Create Custom big violin plot with scanpy function & matplotlib    
     def violinplots(self, path, markers, name, adata):

@@ -8,7 +8,7 @@ import time
 # Create time variable to time code
 s = time.time()
 
-#Simple helper function allows for the calling of multiple OOP-imports that represent steps in the pipeline.
+# Simple helper function allows for the calling of multiple OOP-imports that represent steps in the pipeline.
 def single_sample_helper(queue, sample_dir, sample, output_dir, markerpath):
     # import Sample_Analysis performs individual analysis
     adata = Sample_Analysis(sample_dir, sample, output_dir, markerpath)
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     # Create directories and check if they exist.
     sample_dir = 'C:/Users/julia/scRNAseq_Analysis_project/samples_dir'
     sample_names = [folder.name for folder in os.scandir(sample_dir) if folder.is_dir()]
-    output_dir = 'C:/Users/julia/Project/outputdir2'
+    output_dir = 'C:/Users/julia/Project/outputdir'
     markerpath = 'C:/Users/julia/Project/markergenes.txt'
 
     # give programm pointers as to which sample is co culture and which are mono culture
