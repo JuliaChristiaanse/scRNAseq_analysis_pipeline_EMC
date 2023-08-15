@@ -23,6 +23,8 @@ anndata2ri = "*"
 rpy2 = "*"
 scnym = "*"
 tensorflow = "*"
+symphonypy = "*"
+opentsne = "*"
 
 [dev-packages]
 
