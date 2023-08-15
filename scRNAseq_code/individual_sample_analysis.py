@@ -1,6 +1,7 @@
 import os
 from matplotlib import pyplot as plt
 import scanpy as sc
+import anndata as ad
 from differential_expression_analysis import Differential_Expression_Analysis as dea
 
 #Set scanpy settings, turned figure settings off for now
@@ -70,7 +71,7 @@ class Sample_Analysis:
         plt.savefig(os.path.join(self.sample_output, 'QC', 'ngenes_by_counts'+self.sample_name+'.png'))
 
 
-    # Detect doublets in dataset
+    # Detect doublets in dataset EDIT: 14-8-2023 --> fixing the umap doublet issue
     def detect_doublets(self):
         sc.external.pp.scrublet(self.adata, adata_sim=None, batch_key=None, sim_doublet_ratio=2.0, expected_doublet_rate=0.06, stdev_doublet_rate=0.02, synthetic_doublet_umi_subsampling=1.0, knn_dist_metric='euclidean',
                          normalize_variance=True, log_transform=False, mean_center=True, n_prin_comps=30, use_approx_neighbors=True, get_doublet_neighbor_parents=False, n_neighbors=None, threshold=None,
@@ -78,7 +79,16 @@ class Sample_Analysis:
         sc.external.pl.scrublet_score_distribution(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'doublet_score_distribution_'+self.sample_name+'.png'))
         self.adata.obs['doublet_info'] = self.adata.obs["predicted_doublet"].astype(str)
+        # save the doublets we detected
+        self.doublets_found = self.adata[self.adata.obs['doublet_info']=='True',:]
+        # remove doublets from data
+        self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
+        # Continue downstream with normalization_HVG() with our self.adata (doublets removed)
 
+        # Maurits idea:
+        # save doublets in new objest
+        # remove doublets van orignal adata
+        # map doublets to umap from original adata --> very netjes
 
     # Subset, Regress out bad stuff and normalize, find variablefeatures and do some other stuff like SCTransform
     def normalization_HVG(self):
@@ -89,10 +99,9 @@ class Sample_Analysis:
         sc.pp.highly_variable_genes(self.adata, flavor='cell_ranger', subset=False) # EDIT: added this line for testing
         sc.pl.highly_variable_genes(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Highly_variable_genes_'+self.sample_name+'.png'))
-        # better to remove doublets before calling raw data as last filtering step
-        #self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         self.adata.raw = self.adata
-        self.adata = self.adata[:, self.adata.var.highly_variable] # Actually do the slicing
+        # slice adata so only HVG remain in all cells
+        self.adata = self.adata[:, self.adata.var.highly_variable]
         sc.pp.regress_out(self.adata, ['total_counts', 'pct_counts_mt']) # regress out sequencing depth and % MT-RNA
         sc.pp.scale(self.adata)
 
@@ -117,11 +126,26 @@ class Sample_Analysis:
         title=f'Unsupervised Leiden Cluster {self.sample_name}'
         sc.pl.umap(self.adata, color=['leiden'], title=title, legend_loc='on data', legend_fontsize=8, show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Unsupervised_UMAP_'+self.sample_name+'.png'))
-        sc.pl.umap(self.adata, color=['doublet_score', 'doublet_info'], show=False)
-        plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Doublet_umap'+self.sample_name+'.png'))
-        # remove doublets here? 
-        # write anndata object to h5ad file
+       
+        # EDIT 14-8-2023: Now we have to re-add/integrate the doublets on top of our newly created
+        # umap, to show users that doublets were here...
+        # MAP DOUBLETS ON TOP OF UMAP:
+        self.adata.obs['doublet?'] = 'No doublet'
+        self.doublets_found.obs['doublet?'] = 'Doublet'
+        self.doublets_included = ad.concat([self.adata, self.doublets_found], keys=['No doublet', 'Doublet'])
+        print(self.adata)
+        print(self.doublets_included)
 
+        # Method 1
+        # This method simply re-runs pca, neighbors, umap & leiden on the merged adata's and plots the result
+        sc.pp.pca(self.doublets_included)
+        sc.pp.neighbors(self.doublets_included, n_neighbors=10, n_pcs=20) # calculate neighbors with 20 npc's
+        sc.tl.umap(self.doublets_included)
+        sc.tl.leiden(self.doublets_included, resolution=0.5)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
+        title=f'Doublets detected in dataset {self.sample_name}'
+        sc.pl.umap(self.doublets_included, color=['doublet_score', 'doublet_info'], title=title, legend_loc='right margin', legend_fontsize=8, show=False)
+        plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Doublet_umap_'+self.sample_name+'.png'))
+       
 
 
     # run all functions at once and write AnnData
@@ -136,11 +160,7 @@ class Sample_Analysis:
         df_vars.to_csv(self.sample_output+'/adata_vars', sep='\t', encoding='utf-8')
         self.run_PCA()
         self.unsupervised_clustering()
-        # remove doublets as a final step
-        # Q maurits: do this earlier because this is technically pre-processing
-        # the consequence of this is no UMAP plot after clustering with the doublets shown
-        # what is the better option?
-        self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
+        # self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         self.adata_DE = self.adata.raw.to_adata()
         deado = dea(self.adata_DE, self.sample_output, self.sample_name, self.markerpath)
         deado.perform_dea()
