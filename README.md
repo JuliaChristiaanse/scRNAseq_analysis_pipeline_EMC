@@ -21,4 +21,4 @@ Marker genes format:
 - an example on how to format your markergenes can be found in markergenes.txt.
 - The code accounts for a global marker genes "group" and a bunch of marker genes all seperated by a comma.
 
-Happy analysing :D
+Happy analyzing :D
