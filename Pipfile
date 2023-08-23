@@ -25,6 +25,8 @@ scnym = "*"
 tensorflow = "*"
 symphonypy = "*"
 opentsne = "*"
+packaging = "*"
+cellrank = "*"
 
 [dev-packages]
 
