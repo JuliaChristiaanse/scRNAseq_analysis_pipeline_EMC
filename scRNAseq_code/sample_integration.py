@@ -12,7 +12,6 @@ sc.logging.print_header()
 sc.settings.set_figure_params(dpi=120, dpi_save=150, facecolor='white', color_map='Blues')
 
 class Sample_integration:
-
     def __init__(self, co_sample, mono_sample, output_dir, markerpath):
         self.co_sample = co_sample
         self.mono_sample = mono_sample
@@ -30,7 +29,7 @@ class Sample_integration:
         os.chdir(os.path.join(self.sample_output))
         os.makedirs('DEA')
         os.makedirs('UMAPS')
-        os.makedirs('AnnData_storage')
+        os.makedirs('anndata_storage')
 
 
     # The mono and co samples are concatinated in one anndata object and returned
@@ -83,9 +82,8 @@ class Sample_integration:
         good_clusters = list(pos.index)
         adata_subset = adataobj[adataobj.obs['leiden'].isin(good_clusters)]
         self.run_harmony(adata_subset, "UMAPS_after_cell_selection")
-        adata_subset.write(os.path.join(self.sample_output,
-                                        'AnnData_storage',
-                                        f'{self.full_name}_subset_anndata.h5ad'))
+        self.path = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}_subset_anndata.h5ad')
+        adata_subset.write(self.path)
 
 
     # This function calls all other functions & runs them
