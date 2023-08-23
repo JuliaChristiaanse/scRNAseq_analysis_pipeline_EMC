@@ -16,3 +16,9 @@ Can be ran with the following code:
 - Run code accordingly
 
 Change name of directory in settings.json to your current project directory.
+
+Marker genes format:
+- an example on how to format your markergenes can be found in markergenes.txt.
+- The code accounts for a global marker genes "group" and a bunch of marker genes all seperated by a comma.
+
+Happy analysing :D
