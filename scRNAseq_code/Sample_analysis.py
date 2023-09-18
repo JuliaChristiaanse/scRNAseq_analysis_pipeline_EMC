@@ -2,7 +2,7 @@ import os
 from matplotlib import pyplot as plt
 import scanpy as sc
 import anndata as ad
-from differential_expression_analysis import Differential_Expression_Analysis as dea
+from Differential_expression_analysis import Differential_Expression_Analysis as dea
 
 #Set scanpy settings, turned figure settings off for now
 sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
@@ -10,16 +10,7 @@ sc.logging.print_header()
 sc.settings.set_figure_params(dpi=150, facecolor='white')
 
 
-# TO DO: store doublet as layer? if we remove doublets as a filtering step BEFORE PCA,
-# We won't be able to plot the clustering plot, but if we leave it in, they will be present
-# in the sample integration. --> try out layer or remove umap plot. (umap plot requires leidenalg)
-
-# Might've solved this problem with adata itself as input for dea. idk why I didn't think of this sooner
-# Look into way to do this without error.
-# but use adata.raw.to_adata() for dea plots! Otherwise it wont find them
-
 class Sample_Analysis:
-
     # Init that sets variables, calls create_AnnData() method and runs all code below with run() method
     def __init__(self, sample_dir, sample_name, output_dir, markerpath):
         self.sample_dir = sample_dir
@@ -85,10 +76,6 @@ class Sample_Analysis:
         self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         # Continue downstream with normalization_HVG() with our self.adata (doublets removed)
 
-        # Maurits idea:
-        # save doublets in new objest
-        # remove doublets van orignal adata
-        # map doublets to umap from original adata --> very netjes
 
     # Subset, Regress out bad stuff and normalize, find variablefeatures and do some other stuff like SCTransform
     def normalization_HVG(self):
@@ -145,7 +132,6 @@ class Sample_Analysis:
         title=f'Doublets detected in dataset {self.sample_name}'
         sc.pl.umap(self.doublets_included, color=['doublet_score', 'doublet_info'], title=title, legend_loc='right margin', legend_fontsize=8, show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Doublet_umap_'+self.sample_name+'.png'))
-       
 
 
     # run all functions at once and write AnnData

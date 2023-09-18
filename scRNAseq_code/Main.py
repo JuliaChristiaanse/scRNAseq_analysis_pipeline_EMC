@@ -1,8 +1,8 @@
 
 import os
 import multiprocessing as mp
-from individual_sample_analysis import Sample_Analysis
-from sample_integration import Sample_integration
+from Sample_analysis import Sample_Analysis
+from Sample_integration import Sample_integration
 from dea_cellrank import DEA_Cellrank
 import time
 
@@ -19,9 +19,9 @@ def integration_helper(queue, mono_h5ad, co_h5ad, output_dir, markerpath):
     concat = Sample_integration(co_h5ad, mono_h5ad, output_dir, markerpath)
     queue.put(concat)
 
-def dea_cellrank_helper(queue, subset_adata_path, output_dir, markerpath):
-    deacellrank = DEA_Cellrank(subset_adata_path, output_dir, markerpath)
-    queue.put(deacellrank)
+# def dea_cellrank_helper(queue, subset_adata_path, output_dir, markerpath):
+#     deacellrank = DEA_Cellrank(subset_adata_path, output_dir, markerpath)
+#     queue.put(deacellrank)
 
 
 # Main where users can provide their input and output directories
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # Create directories and check if they exist.
     sample_dir = 'C:/Users/julia/scRNAseq_Analysis_project/samples_dir'
     sample_names = [folder.name for folder in os.scandir(sample_dir) if folder.is_dir()]
-    output_dir = 'C:/Users/julia/Project/outputdir2'
+    output_dir = 'C:/Users/julia/Project/Output_directory_test1'
     markerpath = 'C:/Users/julia/Project/markergenes.txt'
 
     # give programm pointers as to which sample is co culture and which are mono culture
@@ -85,33 +85,33 @@ if __name__ == '__main__':
 
 
     # -----------------------------------------------------------------------------------------
-    # Step 7 small DEA, pseudotime & RNA velocity
+    # # Step 7 small DEA, pseudotime & RNA velocity
 
-    # for i in combis:      # use this for later !
-    #     path = i.path
-    #     full_name = i.full_name
+    # # for i in combis:      # use this for later !
+    # #     path = i.path
+    # #     full_name = i.full_name
     
-    astroco_subset = os.path.join(output_dir,'integrated_BL_C_BL_A',
-                                  'AnnData_storage',
-                                  'BL_C_BL_A_subset_anndata.h5ad')
-    neuroco_subset = os.path.join(output_dir,'integrated_BL_C_BL_N',
-                                  'AnnData_storage',
-                                  'BL_C_BL_N_subset_anndata.h5ad')
-    subset_adatas_paths = [astroco_subset, neuroco_subset]
+    # astroco_subset = os.path.join(output_dir,'integrated_BL_C_BL_A',
+    #                               'AnnData_storage',
+    #                               'BL_C_BL_A_subset_anndata.h5ad')
+    # neuroco_subset = os.path.join(output_dir,'integrated_BL_C_BL_N',
+    #                               'AnnData_storage',
+    #                               'BL_C_BL_N_subset_anndata.h5ad')
+    # subset_adatas_paths = [astroco_subset, neuroco_subset]
 
-    q = mp.Queue()
-    cellrank_dea_process = []
-    object_storage = []
+    # q = mp.Queue()
+    # cellrank_dea_process = []
+    # object_storage = []
 
-    for subset_adata in subset_adatas_paths:
-        p = mp.Process(target=dea_cellrank_helper, args=[q, subset_adata, output_dir, markerpath])
-        cellrank_dea_process.append(p)
-        p.start()
-    for p in cellrank_dea_process:
-        deacellrank = q.get()
-        object_storage.append(deacellrank)
-    for p in cellrank_dea_process:
-        p.join()
+    # for subset_adata in subset_adatas_paths:
+    #     p = mp.Process(target=dea_cellrank_helper, args=[q, subset_adata, output_dir, markerpath])
+    #     cellrank_dea_process.append(p)
+    #     p.start()
+    # for p in cellrank_dea_process:
+    #     deacellrank = q.get()
+    #     object_storage.append(deacellrank)
+    # for p in cellrank_dea_process:
+    #     p.join()
 
     # -----------------------------------------------------------------------------------------
 

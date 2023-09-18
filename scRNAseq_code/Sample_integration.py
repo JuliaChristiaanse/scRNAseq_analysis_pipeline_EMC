@@ -5,7 +5,7 @@ import harmonypy as hm
 import anndata
 import numpy as np
 from matplotlib import pyplot as plt
-from differential_expression_analysis import Differential_Expression_Analysis as dea
+from Differential_expression_analysis import Differential_Expression_Analysis as dea
 
 sc.settings.verbosity = 3
 sc.logging.print_header()
@@ -84,6 +84,7 @@ class Sample_integration:
         self.run_harmony(adata_subset, "UMAPS_after_cell_selection")
         self.path = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}_subset_anndata.h5ad')
         adata_subset.write(self.path)
+        print(adata_subset)
 
 
     # This function calls all other functions & runs them
@@ -98,10 +99,9 @@ class Sample_integration:
             genes = ['DCX', 'MAP2', 'RBFOX3']
         else:
             genes = ['VIM', 'S100B', 'SOX9']
-        # I can later expand this code and create a csv file with all marker genes of interest
-        # to plot log fold change and then I have a table for in my thesis yay
-        dp = sc.pl.rank_genes_groups_dotplot(deado.adata, deado.cluster, color_map='Blues',
-                                              var_names=genes, return_fig=True, show=False)
+        # dp = sc.pl.rank_genes_groups_dotplot(deado.adata, deado.cluster, color_map='Blues',
+        #                                       var_names=genes, return_fig=True, show=False)
+        dp = deado.rank_genes_dotplot_overview(genes)
         self.cell_selection(self.adata_DE, self.concat_anndata, genes, dp)
         self.concat_anndata.write(os.path.join(self.sample_output,
                                                 'AnnData_storage',

@@ -52,6 +52,10 @@ class DEA_Cellrank:
                 plt.savefig(os.path.join(self.sample_output, 'dea_output', self.marker_group,
                                           f'Features_overview_{self.sample_name}_{self.marker_group}.png'))
 
+    def volcano_plot(self):
+        pass
+
+
 
     def run(self):
         self.makedirs()

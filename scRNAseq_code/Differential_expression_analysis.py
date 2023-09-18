@@ -96,6 +96,11 @@ class Differential_Expression_Analysis:
         sc.pl.tracksplot(adata, markers, 'leiden', log=False, color_map='Blues', show=False)
         plt.savefig(os.path.join(path, 'DEA', name, 'Tracksplot'+self.full_sample_name+'.png'))
 
+    
+    def rank_genes_dotplot_overview(self, genes):
+        dp = sc.pl.rank_genes_groups_dotplot(self.adata, self.cluster, color_map='Blues',
+                                              var_names=genes, return_fig=True, show=False)
+        return dp
 
     # Create dictionairy with marker genes and name of set
     # Seperate those in name and a list of markers
