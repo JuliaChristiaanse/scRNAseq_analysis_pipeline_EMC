@@ -12,13 +12,13 @@ sc.logging.print_header()
 sc.settings.set_figure_params(dpi=120, dpi_save=150, facecolor='white', color_map='Blues')
 
 class Sample_integration:
-    def __init__(self, co_sample, mono_sample, output_dir, markerpath):
+    def __init__(self, co_sample, mono_sample, full_name, output_dir, sample_output, markerpath):
         self.co_sample = co_sample
         self.mono_sample = mono_sample
         self.output_dir = output_dir
-        self.full_name = self.co_sample+'_'+self.mono_sample
+        self.full_name = full_name
         self.concat_anndata = self.concatinate_adatas()
-        self.sample_output = os.path.join(output_dir, 'integrated_'+self.full_name)
+        self.sample_output = sample_output
         self.markerpath = markerpath
         self.run()
 
@@ -29,7 +29,7 @@ class Sample_integration:
         os.chdir(os.path.join(self.sample_output))
         os.makedirs('DEA')
         os.makedirs('UMAPS')
-        os.makedirs('anndata_storage')
+        os.makedirs('AnnData_storage')
 
 
     # The mono and co samples are concatinated in one anndata object and returned
@@ -80,17 +80,16 @@ class Sample_integration:
         dotdf = dp.dot_size_df
         pos = dotdf[(dotdf[genes[0]] > .2) & (dotdf[genes[1]] > .2) & (dotdf[genes[2]] > .2)]
         good_clusters = list(pos.index)
-        adata_subset = adataobj[adataobj.obs['leiden'].isin(good_clusters)]
-        self.run_harmony(adata_subset, "UMAPS_after_cell_selection")
+        self.adata_subset = adataobj[adataobj.obs['leiden'].isin(good_clusters)]
+        self.run_harmony(self.adata_subset, "UMAPS after cell selection")
         self.path = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}_subset_anndata.h5ad')
-        adata_subset.write(self.path)
-        print(adata_subset)
+        self.adata_subset.write(self.path)
 
 
     # This function calls all other functions & runs them
     def run(self):
         self.makedirs()
-        self.run_harmony(self.concat_anndata, "UMAPS_before_cell_selection")
+        self.run_harmony(self.concat_anndata, "UMAPS before cell selection")
         self.adata_DE = self.concat_anndata.raw.to_adata()
         deado = dea(self.adata_DE, self.sample_output, self.full_name, self.markerpath)
         deado.perform_dea()
@@ -103,7 +102,7 @@ class Sample_integration:
         #                                       var_names=genes, return_fig=True, show=False)
         dp = deado.rank_genes_dotplot_overview(genes)
         self.cell_selection(self.adata_DE, self.concat_anndata, genes, dp)
-        self.concat_anndata.write(os.path.join(self.sample_output,
-                                                'AnnData_storage',
-                                                f'{self.full_name}_concat_anndata.h5ad'))
+        # We don't do anything with the integrated anndata object so don't save?
+        # self.path_full_anndata = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}_concat_anndata.h5ad')
+        # self.concat_anndata.write(os.path.join(self.path_full_anndata))
         

@@ -3,9 +3,9 @@ import pandas as pd
 import cellrank as cr
 from matplotlib import pyplot as plt
 import os
-from differential_expression_analysis import Differential_Expression_Analysis
+from Differential_expression_analysis import Differential_Expression_Analysis
 
-class DEA_Cellrank:
+class Final_Dea:
 
     def __init__(self, subset_adata_path, output_dir, markerpath):
         self.adata = sc.read(subset_adata_path)
