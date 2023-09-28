@@ -47,7 +47,8 @@ class Sample_integration:
     # plots are created
     # TO DO: Create plots for solo samples in for loop and add to axis (try in Notebook)
     def run_harmony(self, adataobj, umaptitle):
-        sc.pp.pca(adataobj, n_comps=50)
+        umaptitle = ""
+        sc.pp.pca(adataobj, n_comps=50, random_state=0)
         data_mat = adataobj.obsm['X_pca']
         meta_data = adataobj.obs
         vars_use = ['batch']
@@ -61,9 +62,9 @@ class Sample_integration:
                              cluster_prior=None, random_state=0)
         adjusted_pcs = pd.DataFrame(ho.Z_corr).T
         adataobj.obsm['X_pca']=adjusted_pcs.values
-        sc.pp.neighbors(adataobj, n_pcs=20)
-        sc.tl.leiden(adataobj, resolution=0.5)
-        sc.tl.umap(adataobj)
+        sc.pp.neighbors(adataobj, n_pcs=20, random_state=0)
+        sc.tl.leiden(adataobj, resolution=0.5, random_state=0)
+        sc.tl.umap(adataobj, random_state=0)
         fig, axs = plt.subplots(2, 2, figsize=(10,8),constrained_layout=True)
         # change to lower case
         cocult = adataobj[adataobj.obs['batch'] == self.co_sample]
@@ -84,12 +85,16 @@ class Sample_integration:
         self.run_harmony(self.adata_subset, "UMAPS after cell selection")
         self.path = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}_subset_anndata.h5ad')
         self.adata_subset.write(self.path)
+        print(self.mono_sample, self.co_sample)
+        print(self.adata_subset)
 
 
     # This function calls all other functions & runs them
     def run(self):
         self.makedirs()
         self.run_harmony(self.concat_anndata, "UMAPS before cell selection")
+        print(self.mono_sample, self.co_sample)
+        print(self.concat_anndata)
         self.adata_DE = self.concat_anndata.raw.to_adata()
         deado = dea(self.adata_DE, self.sample_output, self.full_name, self.markerpath)
         deado.perform_dea()

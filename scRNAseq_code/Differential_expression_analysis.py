@@ -27,7 +27,6 @@ class Differential_Expression_Analysis:
         self.cluster = [str(x) for x in self.cluster]
         rank_genes_df = sc.get.rank_genes_groups_df(self.adata, group=self.cluster, key='rank_genes_groups', pval_cutoff=0.5, log2fc_min=0, log2fc_max=None, gene_symbols=None)
         rank_genes_df.to_csv(os.path.join(self.output_path, 'DEA', self.full_sample_name+'_rank_genes_df.tsv'), sep='\t', encoding='utf-8')
-        # return self.cluster # remove this line?
 
 
     # read .txt file containing markergenes and put them in a dictionary for downstream

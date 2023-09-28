@@ -11,21 +11,22 @@ import time
 s = time.time()
 
 # Simple helper function allows for the calling of multiple OOP-imports that represent steps in the pipeline.
-def single_sample_helper(queue, sample_dir, sample, output_dir, markerpath):
-    # import Sample_Analysis performs individual analysis
-    adata = Sample_Analysis(sample_dir, sample, output_dir, markerpath)
-    queue.put(adata)
+# def single_sample_helper(queue, sample_dir, sample, output_dir, markerpath):
+#     # import Sample_Analysis performs individual analysis
+#     adata = Sample_Analysis(sample_dir, sample, output_dir, markerpath)
+#     queue.put(adata)
 
-def integration_helper(queue, mono_h5ad, co_h5ad, full_name, output_dir, sample_output, markerpath):
-    concat = Sample_integration(co_h5ad, mono_h5ad, full_name, output_dir, sample_output, markerpath)
-    queue.put(concat)
+# def integration_helper(queue, mono_h5ad, co_h5ad, full_name, output_dir, sample_output, markerpath):
+#     concat = Sample_integration(co_h5ad, mono_h5ad, full_name, output_dir, sample_output, markerpath)
+#     queue.put(concat)
 
-def annotation_helper(queue, sample_name, adata_loc, output_dir, sample_output, reference_data_dir):
-    annotate = Cell_Type_Annotation(sample_name, adata_loc, output_dir, sample_output, reference_data_dir)
+def annotation_helper(queue, sample_name, adata_loc, output_dir, sample_output, reference_data_dir, path_to_ref_data):
+    annotate = Cell_Type_Annotation(sample_name, adata_loc, output_dir, sample_output, reference_data_dir, path_to_ref_data)
+    queue.put(annotate)
 
-def dea_cellrank_helper(queue, subset_adata_path, output_dir, markerpath):
-    deacellrank = Final_Dea(subset_adata_path, output_dir, markerpath)
-    queue.put(deacellrank)
+# def dea_cellrank_helper(queue, subset_adata_path, output_dir, markerpath):
+#     deacellrank = Final_Dea(subset_adata_path, output_dir, markerpath)
+#     queue.put(deacellrank)
 
 
 # Main where users can provide their input and output directories
@@ -35,9 +36,10 @@ if __name__ == '__main__':
 
     # Create directories and check if they exist.
     sample_dir = 'C:/Users/julia/scRNAseq_Analysis_project/samples_dir'
-    reference_data_dir = 'C:/Users/julia/Project/data/R_pipeline_files/chunks_25'
+    reference_data_dir = 'C:/Users/julia/Project/data/chunks_25'
+    path_to_ref_data = 'C:/Users/julia/Project/data'
     sample_names = [folder.name for folder in os.scandir(sample_dir) if folder.is_dir()]
-    output_dir = 'C:/Users/julia/Project/Output_thesis_results_19-09_2023'
+    output_dir = 'C:/Users/julia/Project/test10'
     markerpath = 'C:/Users/julia/Project/markergenes.txt'
 
     # give programm pointers as to which sample is co culture and which are mono culture
@@ -50,7 +52,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------
     # # Step 1-3 Individual Sample Analysis
 
-    # # Create Queue, and lists to store output of add helper function and processes.
+    # Create Queue, and lists to store output of add helper function and processes.
     # q = mp.Queue()
     # processes = []
     # adatas = []
@@ -97,7 +99,7 @@ if __name__ == '__main__':
         sample_name = sample
         adata_loc = os.path.join(output_dir, "integrated_"+sample_name, "AnnData_storage")
         sample_output = os.path.join(output_dir, "Cell_type_annotation", sample_name)
-        p = mp.Process(target=annotation_helper, args=[q, sample_name, adata_loc, output_dir, sample_output, reference_data_dir])
+        p = mp.Process(target=annotation_helper, args=[q, sample_name, adata_loc, output_dir, sample_output, reference_data_dir, path_to_ref_data])
         annotation_process.append(p)
         p.start()
     for p in annotation_process:

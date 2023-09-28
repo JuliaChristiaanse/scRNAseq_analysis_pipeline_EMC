@@ -55,10 +55,10 @@ class Sample_Analysis:
                      scale='width', color='#9ADCFF', multi_panel=True, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'QC_nfeatn_count_percMT_'+self.sample_name+'.png'))
         sc.pl.scatter(self.adata, 'pct_counts_mt', 'total_counts', color='pct_counts_mt',
-                      title='Percentage of MT RNA in counts '+self.sample_name, color_map='Blues', show=False)
+                      title="", color_map='Blues', show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Pct_MT_RNA_in_counts'+self.sample_name+'.png'))
         sc.pl.scatter(self.adata, 'n_genes_by_counts', 'total_counts', color='n_genes_by_counts',
-                      title='Amount of genes by counts '+self.sample_name, color_map='Blues', show=False)
+                      title="", color_map='Blues', show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'ngenes_by_counts'+self.sample_name+'.png'))
 
 
@@ -95,9 +95,9 @@ class Sample_Analysis:
 
     # Run a PCA and plot output
     def run_PCA(self):
-        sc.tl.pca(self.adata, n_comps=50)       # Create 50 components
-        #self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', 'PCA_'+self.sample_name+'.h5ad'))
-        sc.pl.pca(self.adata, annotate_var_explained=True, na_color='#9ADCFF', title=f'PCA scoringsplot {self.sample_name}', show=False)
+        sc.tl.pca(self.adata, n_comps=50, random_state=0)       # Create 50 components
+        #self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', 'PCA_'+self.sample_name+'.h5ad')) f'PCA scoringsplot {self.sample_name}'
+        sc.pl.pca(self.adata, annotate_var_explained=True, na_color='#9ADCFF', title="", show=False)
         plt.savefig(os.path.join(self.sample_output, 'PCA', 'PCA_Scores_'+self.sample_name+'.png'))
         sc.pl.pca_loadings(self.adata, components=[1,2], show=False) # Only show first 2.
         plt.savefig(os.path.join(self.sample_output, 'PCA', 'PCA_loadings_plot_'+self.sample_name+'.png'))
@@ -107,11 +107,11 @@ class Sample_Analysis:
 
     # Perform unsupervised clustering on the un-annotated sample
     def unsupervised_clustering(self):
-        sc.pp.neighbors(self.adata, n_neighbors=10, n_pcs=20) # calculate neighbors with 20 npc's
-        sc.tl.umap(self.adata)
-        sc.tl.leiden(self.adata, resolution=0.5)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
+        sc.pp.neighbors(self.adata, n_neighbors=10, n_pcs=20, random_state=0) # calculate neighbors with 20 npc's
+        sc.tl.umap(self.adata, random_state=0)
+        sc.tl.leiden(self.adata, resolution=0.5, random_state=0)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
         title=f'Unsupervised Leiden Cluster {self.sample_name}'
-        sc.pl.umap(self.adata, color=['leiden'], title=title, legend_loc='on data', legend_fontsize=8, show=False)
+        sc.pl.umap(self.adata, color=['leiden'], title="", legend_loc='on data', legend_fontsize=8, show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Unsupervised_UMAP_'+self.sample_name+'.png'))
        
         # EDIT 14-8-2023: Now we have to re-add/integrate the doublets on top of our newly created
@@ -120,15 +120,15 @@ class Sample_Analysis:
         self.adata.obs['doublet?'] = 'No doublet'
         self.doublets_found.obs['doublet?'] = 'Doublet'
         self.doublets_included = ad.concat([self.adata, self.doublets_found], keys=['No doublet', 'Doublet'])
-        print(self.adata)
-        print(self.doublets_included)
+        # print(self.adata)
+        # print(self.doublets_included)
 
         # Method 1
         # This method simply re-runs pca, neighbors, umap & leiden on the merged adata's and plots the result
-        sc.pp.pca(self.doublets_included)
-        sc.pp.neighbors(self.doublets_included, n_neighbors=10, n_pcs=20) # calculate neighbors with 20 npc's
-        sc.tl.umap(self.doublets_included)
-        sc.tl.leiden(self.doublets_included, resolution=0.5)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
+        sc.pp.pca(self.doublets_included, random_state=0)
+        sc.pp.neighbors(self.doublets_included, n_neighbors=10, n_pcs=20, random_state=0) # calculate neighbors with 20 npc's
+        sc.tl.umap(self.doublets_included, random_state=0)
+        sc.tl.leiden(self.doublets_included, resolution=0.5, random_state=0)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
         title=f'Doublets detected in dataset {self.sample_name}'
         sc.pl.umap(self.doublets_included, color=['doublet_score', 'doublet_info'], title=title, legend_loc='right margin', legend_fontsize=8, show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Doublet_umap_'+self.sample_name+'.png'))
@@ -152,3 +152,6 @@ class Sample_Analysis:
         deado.perform_dea()
         deado.basic_dea_plots()
         self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', self.sample_name+'.h5ad'))
+        print(self.sample_name)
+        print(self.adata)
+

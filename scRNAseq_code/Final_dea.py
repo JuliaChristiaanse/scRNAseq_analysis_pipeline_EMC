@@ -55,6 +55,9 @@ class Final_Dea:
     def volcano_plot(self):
         pass
 
+    def dotplot(self):
+        pass
+
 
 
     def run(self):
