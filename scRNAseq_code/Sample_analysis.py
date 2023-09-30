@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import scanpy as sc
 import anndata as ad
 from Differential_expression_analysis import Differential_Expression_Analysis as dea
+from Cell_type_annotation import Cell_Type_Annotation as cta
 
 #Set scanpy settings, turned figure settings off for now
 sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
@@ -12,7 +13,7 @@ sc.settings.set_figure_params(dpi=150, facecolor='white')
 
 class Sample_Analysis:
     # Init that sets variables, calls create_AnnData() method and runs all code below with run() method
-    def __init__(self, sample_dir, sample_name, output_dir, markerpath):
+    def __init__(self, sample_dir, sample_name, output_dir, markerpath, reference_data_dir, path_to_ref_data):
         self.sample_dir = sample_dir
         self.sample_name = sample_name
         self.output_dir = output_dir
@@ -20,6 +21,8 @@ class Sample_Analysis:
         self.sample_output = os.path.join(self.output_dir, self.sample_name)
         self.adata = self.create_AnnData()
         self.markerpath = markerpath
+        self.reference_data_dir = reference_data_dir
+        self.path_to_ref_data = path_to_ref_data
         self.run()
 
 
@@ -146,12 +149,14 @@ class Sample_Analysis:
         df_vars.to_csv(self.sample_output+'/adata_vars', sep='\t', encoding='utf-8')
         self.run_PCA()
         self.unsupervised_clustering()
-        # self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
+        self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         self.adata_DE = self.adata.raw.to_adata()
         deado = dea(self.adata_DE, self.sample_output, self.sample_name, self.markerpath)
         deado.perform_dea()
         deado.basic_dea_plots()
-        self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', self.sample_name+'.h5ad'))
-        print(self.sample_name)
-        print(self.adata)
-
+        adata_storage = os.path.join(self.sample_output, 'AnnData_storage')
+        self.adata.write(os.path.join(adata_storage, self.sample_name+'.h5ad'))
+        # ctado = cta(self.sample_name, adata_storage, self.output_dir,
+        #              os.path.join(self.sample_output, "Cell_type_annotation"),
+        #                self.reference_data_dir, self.path_to_ref_data)
+        # ctado.run()

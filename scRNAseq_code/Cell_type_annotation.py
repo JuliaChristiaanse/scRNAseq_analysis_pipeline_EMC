@@ -35,7 +35,7 @@ class Cell_Type_Annotation:
 
     def __init__(self, sample_name, adata_loc, output_dir, sample_output, reference_data_dir, path_to_ref_data):
         self.sample_name = sample_name
-        self.adata = sc.read_h5ad(os.path.join(adata_loc, f'{self.sample_name}_subset_anndata.h5ad'))
+        self.adata = sc.read_h5ad(os.path.join(adata_loc, f'{self.sample_name}.h5ad'))
         self.output_dir = output_dir
         self.sample_output = sample_output
         self.reference_data_dir = reference_data_dir
@@ -411,3 +411,4 @@ class Cell_Type_Annotation:
         self.visualize_annotated_data()
         self.annotated_rds_to_anndata_transformer()
         self.visualize_annotation()
+        print(f'{self.sample_name} annotated succesfully!')

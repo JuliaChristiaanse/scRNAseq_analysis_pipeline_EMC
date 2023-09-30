@@ -30,6 +30,7 @@ class Sample_integration:
         os.makedirs('DEA')
         os.makedirs('UMAPS')
         os.makedirs('AnnData_storage')
+        # os.makedirs('Cell_type_annotation')
 
 
     # The mono and co samples are concatinated in one anndata object and returned
@@ -83,7 +84,7 @@ class Sample_integration:
         good_clusters = list(pos.index)
         self.adata_subset = adataobj[adataobj.obs['leiden'].isin(good_clusters)]
         self.run_harmony(self.adata_subset, "UMAPS after cell selection")
-        self.path = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}_subset_anndata.h5ad')
+        self.path = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}.h5ad')
         self.adata_subset.write(self.path)
         print(self.mono_sample, self.co_sample)
         print(self.adata_subset)
