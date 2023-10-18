@@ -53,10 +53,10 @@ class Cell_Type_Annotation:
     
 
     def anndata_to_rds_transformer(self):
-        self.adata_raw = self.adata.raw.to_adata()
+        #self.adata_raw = self.adata.raw.to_adata()
         self.path_to_raw_sample = os.path.join(self.sample_output, 'AnnData_raw_storage', f'{self.sample_name}_anndata_raw.h5ad')
         self.path_to_sample_rds = os.path.join(self.sample_output, 'Sample_RDS_storage', f'{self.sample_name}.rds')
-        self.adata_raw.write(self.path_to_raw_sample)
+        self.adata.write(self.path_to_raw_sample)
         rpy2.robjects.globalenv['path_to_raw_sample'] = self.path_to_raw_sample
         rpy2.robjects.globalenv['path_to_sample_rds'] = self.path_to_sample_rds
         r(
@@ -154,7 +154,7 @@ class Cell_Type_Annotation:
                     test = sample_data,
                     ref = cell_data,
                     labels = SummarizedExperiment::colData(cell_data)[, annotation],
-                    clusters = SummarizedExperiment::colData(sample_data)[, "leiden"],
+                    clusters = SummarizedExperiment::colData(sample_data)[, "seurat_clusters"],
                     de.method = 'wilcox',
                     aggr.ref = FALSE)
                     save(result, file = paste0(filename_base, ".", annotation, ".RData"))
@@ -305,13 +305,13 @@ class Cell_Type_Annotation:
             SeuratObject::Misc(object = data.list[[sample]], slot = paste0("Kriegstein.SingleR.", anno)) <- misc_data
         }
         SeuratObject::Misc(object = data.list[[sample]], slot = "Kriegstein.SingleR.ref_aggr_strategy") <- ref_aggr_strategy
-        data.list[[sample]]$kriegstein.seurat.custom.clusters.mean <- data.list[[sample]]$leiden
+        data.list[[sample]]$kriegstein.seurat.custom.clusters.mean <- data.list[[sample]]$seurat_clusters
         levels(data.list[[sample]]$kriegstein.seurat.custom.clusters.mean) <- paste0(combined.results[[paste(sample, "custom.clusterv2")]]$mean.labels, ".", levels(data.list[[sample]]$kriegstein.seurat.custom.clusters.mean))
         saveRDS(data.list[[sample]], file = sample_files[[sample]])
         }
         # custom visualizations per sample_reference comparison for each annotation
         for (sample in sample_names) {
-            annotation_col <- data.frame(row.names = levels(data.list[[sample]]$leiden))
+            annotation_col <- data.frame(row.names = levels(data.list[[sample]]$seurat_clusters))
             annotation_colors <- list()
             for (anno in annotations) {
             annotation_col[ , ncol(annotation_col) + 1] <- data.list[[sample]]@misc[[paste0("Kriegstein.SingleR.", anno)]][[paste0(ref_aggr_strategy, ".labels")]]
@@ -332,12 +332,12 @@ class Cell_Type_Annotation:
             filename <- file.path(output_dir, paste0("Kriegstein_heatmap_", sample, "_", anno ,".png"))
             message("plotting: ", filename)
             # set rownames for identification of rows during plotting behind <- prints list of clusters
-            rownames(combined.results[[paste(sample, anno)]][[paste0(ref_aggr_strategy, ".scores")]]) <- levels((data.list[[sample]]$leiden))
+            rownames(combined.results[[paste(sample, anno)]][[paste0(ref_aggr_strategy, ".scores")]]) <- levels((data.list[[sample]]$seurat_clusters))
             p <- pheatmap::pheatmap(t(combined.results[[paste(sample, anno)]][[paste0(ref_aggr_strategy, ".scores")]]),
                                     color = grDevices::colorRampPalette(RColorBrewer::brewer.pal(n = 7, name = "PiYG"))(100),
                                     main = "Scores",
                                     filename = filename)
-            print(levels((data.list[[sample]]$leiden)))
+            print(levels((data.list[[sample]]$seurat_clusters)))
             }
         }
         }
@@ -399,8 +399,9 @@ class Cell_Type_Annotation:
 
     def visualize_annotation(self):
         adata = sc.read_h5ad(self.annotated_anndata_storage)
-        adata.obs['leiden_annotated'] = adata.obs['kriegstein.seurat.custom.clusters.mean']
-        sc.pl.umap(adata, color=['leiden', 'leiden_annotated'], legend_loc='on data', show=False)
+        adata.obs['seurat_clusters_annotated'] = adata.obs['kriegstein.seurat.custom.clusters.mean']
+        sc.pl.umap(adata, color=['seurat_clusters', 'seurat_clusters_annotated'], legend_loc='on data', 
+                   legend_fontsize='medium', legend_fontweight='normal',show=False)
         plt.savefig(os.path.join(self.sample_output, f"{self.sample_name}_figures_output", f"{self.sample_name}_UMAP.png"))
 
 

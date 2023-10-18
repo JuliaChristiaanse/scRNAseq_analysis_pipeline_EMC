@@ -13,9 +13,11 @@ def single_sample_helper(queue, sample_dir, sample, output_dir, markerpath, refe
     adata = Sample_Analysis(sample_dir, sample, output_dir, markerpath, reference_data_dir, path_to_ref_data)
     queue.put(adata)
 
+
 def integration_helper(queue, mono_h5ad, co_h5ad, full_name, output_dir, sample_output, markerpath):
     concat = Sample_integration(co_h5ad, mono_h5ad, full_name, output_dir, sample_output, markerpath)
     queue.put(concat)
+
 
 def annotation_helper(queue, sample_name, adata_loc, output_dir, sample_output, reference_data_dir, path_to_ref_data):
     annotated = Cell_Type_Annotation(sample_name, adata_loc, output_dir, sample_output, reference_data_dir, path_to_ref_data)
@@ -35,68 +37,68 @@ if __name__ == '__main__':
     reference_data_dir = 'C:/Users/julia/Project/data/chunks_25'
     path_to_ref_data = 'C:/Users/julia/Project/data'
     sample_names = [folder.name for folder in os.scandir(sample_dir) if folder.is_dir()]
-    output_dir = 'C:/Users/julia/Project/final_try'
+    output_dir = 'C:/Users/julia/Project/CCA_implementation_test2'
     markerpath = 'C:/Users/julia/Project/markergenes.txt'
 
     # give programm pointers as to which sample is co culture and which are mono culture
     co_anndata = 'BL_C'
     mono_anndatas = ['BL_N', 'BL_A']
     
-    if os.path.exists(output_dir):
-        raise ValueError('Your output directory already exists! Please rename or remove it.')
+    # if os.path.exists(output_dir):
+    #     raise ValueError('Your output directory already exists! Please rename or remove it.')
     
     # # -----------------------------------------------------------------------------------------
-    # # Step 1-3 Individual Sample Analysis
+    # Step 1-3 Individual Sample Analysis
 
-    q = mp.Queue()
-    processes = []
-    adatas = []
+    # q = mp.Queue()
+    # processes = []
+    # adatas = []
     
-    for sample in sample_names:
-        p = mp.Process(target=single_sample_helper, args=[q,
-                                                           sample_dir, 
-                                                           sample, output_dir, 
-                                                           markerpath, 
-                                                           reference_data_dir, 
-                                                           path_to_ref_data])
-        processes.append(p)
-        p.start()
-    for p in processes:
-        adata = q.get()
-        adatas.append(adata)
-    for p in processes:
-        p.join()
+    # for sample in sample_names:
+    #     p = mp.Process(target=single_sample_helper, args=[q,
+    #                                                        sample_dir, 
+    #                                                        sample, output_dir, 
+    #                                                        markerpath, 
+    #                                                        reference_data_dir, 
+    #                                                        path_to_ref_data])
+    #     processes.append(p)
+    #     p.start()
+    # for p in processes:
+    #     adata = q.get()
+    #     adatas.append(adata)
+    # for p in processes:
+    #     p.join()
 
-    # # -----------------------------------------------------------------------------------------
+    # # # -----------------------------------------------------------------------------------------
     # # Steps 4 and 5 data integration & cell selection 
     
-    q = mp.Queue()
-    integration_process = []
-    integrated_samples = []
-    names_of_samples = []
+    # q = mp.Queue()
+    # integration_process = []
+    # integrated_samples = []
+    # names_of_samples = []
 
-    for solo_sample in mono_anndatas:
-        full_name = solo_sample+"_"+co_anndata
-        sample_output = os.path.join(output_dir, full_name)
-        p = mp.Process(target=integration_helper, args=[q,
-                                                        solo_sample,
-                                                        co_anndata,
-                                                        full_name,
-                                                        output_dir,
-                                                        sample_output,
-                                                        markerpath])
-        names_of_samples.append(full_name)
-        integration_process.append(p)
-        p.start()
-    for p in integration_process:
-        concat = q.get()
-        integrated_samples.append(concat)
-    for p in integration_process:
-        p.join()
+    # for solo_sample in mono_anndatas:
+    #     full_name = solo_sample+"_"+co_anndata
+    #     sample_output = os.path.join(output_dir, full_name)
+    #     p = mp.Process(target=integration_helper, args=[q,
+    #                                                     solo_sample,
+    #                                                     co_anndata,
+    #                                                     full_name,
+    #                                                     output_dir,
+    #                                                     sample_output,
+    #                                                     markerpath])
+    #     names_of_samples.append(full_name)
+    #     integration_process.append(p)
+    #     p.start()
+    # for p in integration_process:
+    #     concat = q.get()
+    #     integrated_samples.append(concat)
+    # for p in integration_process:
+    #     p.join()
 
     # # -----------------------------------------------------------------------------------------
-    # # Step 6 celltype annotation
-
+    # Step 6 celltype annotation
+    names_of_samples=['BL_A_BL_C', 'BL_N_BL_C']
     q = mp.Queue()
     annotation_process = []
     annotated_anndatas = []
@@ -117,35 +119,20 @@ if __name__ == '__main__':
     for p in annotation_process:
         p.join()
 
-    
-    # q = mp.Queue()
-    # annotation_process = []
-    
-    # for sample_name in integrated_samples:
-    #     adata_loc = os.path.join(output_dir, "integrated_"+sample_name, "AnnData_storage")
-    #     sample_output = os.path.join(output_dir,  "Cell_type_annotation", sample_name)
-    #     p = mp.Process(target=annotation_helper, args=[q, sample_name, adata_loc, output_dir, sample_output, reference_data_dir, path_to_ref_data])
-    #     annotation_process.append(p)
-    #     p.start()
-    # for p in annotation_process:
-    #     annotated_adata = q.get()
-    # for p in annotation_process:
-    #     p.join()
 
-
-    # -----------------------------------------------------------------------------------------
-    # # # Step 7 small DEA, pseudotime & RNA velocity
+    # # -----------------------------------------------------------------------------------------
+    # #  Step 7 small DEA, pseudotime & RNA velocity
 
     # # for i in combis:      # use this for later !
     # #     path = i.path
     # #     full_name = i.full_name
     
-    # astroco_subset = os.path.join(output_dir,'integrated_BL_C_BL_A',
+    # astroco_subset = os.path.join(output_dir,'BL_A_BL_C',
     #                               'AnnData_storage',
-    #                               'BL_C_BL_A_subset_anndata.h5ad')
-    # neuroco_subset = os.path.join(output_dir,'integrated_BL_C_BL_N',
+    #                               'BL_A_BL_C.h5ad')
+    # neuroco_subset = os.path.join(output_dir,'BL_N_BL_C',
     #                               'AnnData_storage',
-    #                               'BL_C_BL_N_subset_anndata.h5ad')
+    #                               'BL_N_BL_C.h5ad')
     # subset_adatas_paths = [astroco_subset, neuroco_subset]
 
     # q = mp.Queue()

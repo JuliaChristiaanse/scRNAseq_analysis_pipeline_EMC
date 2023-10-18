@@ -1,9 +1,11 @@
 import os
 from matplotlib import pyplot as plt
+import pandas as pd
 import scanpy as sc
 import anndata as ad
+import numpy as np
 from Differential_expression_analysis import Differential_Expression_Analysis as dea
-from Cell_type_annotation import Cell_Type_Annotation as cta
+# from Cell_type_annotation import Cell_Type_Annotation as cta
 
 #Set scanpy settings, turned figure settings off for now
 sc.settings.verbosity = 3             # verbosity: errors (0), warnings (1), info (2), hints (3)
@@ -35,6 +37,7 @@ class Sample_Analysis:
         os.makedirs('DEA')
         os.makedirs('Clusters')
         os.makedirs('AnnData_storage')
+        os.makedirs('AnnData_test')
 
     
     # Create AnnData oject, store in cache for faster future access
@@ -48,20 +51,24 @@ class Sample_Analysis:
         sc.pp.filter_cells(self.adata, min_genes=700)   # Keep cells with at least 700 genes expressed
         sc.pp.filter_genes(self.adata, min_cells=3)     # Keep genes that are expressed in atleast 3 cells
         self.adata.uns[self.sample_name] = self.sample_name
-        self.adata.var['mt'] = self.adata.var_names.str.startswith('MT-')    # Filter out MT- RNA
+        self.adata.var['mt'] = self.adata.var_names.str.startswith('MT-')  # Filter out MT- RNA
         sc.pp.calculate_qc_metrics(self.adata, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
         
 
     # Save QC plots to correct folders    
-    def create_QC_plots(self):    
-        sc.pl.violin(self.adata, ['n_genes_by_counts', 'total_counts', 'pct_counts_mt'], 
-                     scale='width', color='#9ADCFF', multi_panel=True, show=False)
-        plt.savefig(os.path.join(self.sample_output, 'QC', 'QC_nfeatn_count_percMT_'+self.sample_name+'.png'))
+    def create_QC_plots(self):
+        # sc.pl.violin(self.adata, ['n_genes_by_counts', 'total_counts', 'pct_counts_mt'], 
+        #              scale='width', color='#9ADCFF', show_legend=False, multi_panel=True, show=False)
+        # plt.savefig(os.path.join(self.sample_output, 'QC', 'QC_nfeatn_count_percMT_'+self.sample_name+'.png'))
         sc.pl.scatter(self.adata, 'pct_counts_mt', 'total_counts', color='pct_counts_mt',
-                      title="", color_map='Blues', show=False)
+                      title="title", color_map='Blues', show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Pct_MT_RNA_in_counts'+self.sample_name+'.png'))
+        # x = self.adata.obs['n_genes_by_counts']
+        # y = self.adata.obs['total_counts']
+        # corr_coef = np.corrcoef(x, y)
         sc.pl.scatter(self.adata, 'n_genes_by_counts', 'total_counts', color='n_genes_by_counts',
                       title="", color_map='Blues', show=False)
+        #print(self.sample_name, f'R-squared: {round(corr_coef[0][1], 2):.2f}')
         plt.savefig(os.path.join(self.sample_output, 'QC', 'ngenes_by_counts'+self.sample_name+'.png'))
 
 
@@ -75,6 +82,7 @@ class Sample_Analysis:
         self.adata.obs['doublet_info'] = self.adata.obs["predicted_doublet"].astype(str)
         # save the doublets we detected
         self.doublets_found = self.adata[self.adata.obs['doublet_info']=='True',:]
+        print(self.doublets_found.var_names)
         # remove doublets from data
         self.adata = self.adata[self.adata.obs['doublet_info'] == 'False',:]
         # Continue downstream with normalization_HVG() with our self.adata (doublets removed)
@@ -82,23 +90,42 @@ class Sample_Analysis:
 
     # Subset, Regress out bad stuff and normalize, find variablefeatures and do some other stuff like SCTransform
     def normalization_HVG(self):
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'pre_scrublet.h5ad'))
+        
         self.detect_doublets()
+        
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_scrublet.h5ad')) 
         self.adata.layers['rawcounts'] = self.adata.X
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_adding_rawcounts_layer.h5ad')) 
+
         sc.pp.normalize_total(self.adata, target_sum=1e4) # EDIT: removed this: still included highly expressed data for now
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_normalize.h5ad'))
+        
         sc.pp.log1p(self.adata)
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_log1p.h5ad'))
+
         sc.pp.highly_variable_genes(self.adata, flavor='cell_ranger', subset=False) # EDIT: added this line for testing
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_hvg.h5ad'))
+
         sc.pl.highly_variable_genes(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Highly_variable_genes_'+self.sample_name+'.png'))
         self.adata.raw = self.adata
         # slice adata so only HVG remain in all cells
         self.adata = self.adata[:, self.adata.var.highly_variable]
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', '7post_hvg_subset.h5ad'))
+        
         sc.pp.regress_out(self.adata, ['total_counts', 'pct_counts_mt']) # regress out sequencing depth and % MT-RNA
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', '8post_regress_out.h5ad'))
+        
         sc.pp.scale(self.adata)
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', '9post_scale.h5ad'))
 
 
     # Run a PCA and plot output
     def run_PCA(self):
         sc.tl.pca(self.adata, n_comps=50, random_state=0)       # Create 50 components
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', '10post_pca.h5ad'))
+        
         #self.adata.write(os.path.join(self.sample_output, 'AnnData_storage', 'PCA_'+self.sample_name+'.h5ad')) f'PCA scoringsplot {self.sample_name}'
         sc.pl.pca(self.adata, annotate_var_explained=True, na_color='#9ADCFF', title="", show=False)
         plt.savefig(os.path.join(self.sample_output, 'PCA', 'PCA_Scores_'+self.sample_name+'.png'))
@@ -111,8 +138,11 @@ class Sample_Analysis:
     # Perform unsupervised clustering on the un-annotated sample
     def unsupervised_clustering(self):
         sc.pp.neighbors(self.adata, n_neighbors=10, n_pcs=20, random_state=0) # calculate neighbors with 20 npc's
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_knn.h5ad'))
         sc.tl.umap(self.adata, random_state=0)
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_umap.h5ad'))
         sc.tl.leiden(self.adata, resolution=0.5, random_state=0)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_leiden.h5ad'))
         title=f'Unsupervised Leiden Cluster {self.sample_name}'
         sc.pl.umap(self.adata, color=['leiden'], title="", legend_loc='on data', legend_fontsize=8, show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Unsupervised_UMAP_'+self.sample_name+'.png'))
@@ -155,6 +185,7 @@ class Sample_Analysis:
         deado.perform_dea()
         deado.basic_dea_plots()
         adata_storage = os.path.join(self.sample_output, 'AnnData_storage')
+        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', '14post_DEA.h5ad'))
         self.adata.write(os.path.join(adata_storage, self.sample_name+'.h5ad'))
         # ctado = cta(self.sample_name, adata_storage, self.output_dir,
         #              os.path.join(self.sample_output, "Cell_type_annotation"),

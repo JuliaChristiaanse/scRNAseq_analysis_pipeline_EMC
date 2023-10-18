@@ -1,15 +1,27 @@
 import scanpy as sc
 import os
-import pandas as pd
-import harmonypy as hm
-import anndata
-import numpy as np
 from matplotlib import pyplot as plt
+import rpy2.robjects
+from rpy2.robjects import r
+import rpy2.ipython.html
+import rpy2
+import anndata2ri
+anndata2ri.activate()
 from Differential_expression_analysis import Differential_Expression_Analysis as dea
-
+r('library(Seurat)')
+r('library(SingleR)')
+r('library(scuttle)')
+r('library(scran)')
+r('library(reticulate)')
+r('use_virtualenv("C:/Users/julia/.virtualenvs/project-VjJne3mB")')
+r('library(SeuratDisk)')
+r('library(SeuratData)')
+r('library(patchwork)')
+r('library(sceasy)')
 sc.settings.verbosity = 3
 sc.logging.print_header()
 sc.settings.set_figure_params(dpi=120, dpi_save=150, facecolor='white', color_map='Blues')
+
 
 class Sample_integration:
     def __init__(self, co_sample, mono_sample, full_name, output_dir, sample_output, markerpath):
@@ -17,7 +29,6 @@ class Sample_integration:
         self.mono_sample = mono_sample
         self.output_dir = output_dir
         self.full_name = full_name
-        self.concat_anndata = self.concatinate_adatas()
         self.sample_output = sample_output
         self.markerpath = markerpath
         self.run()
@@ -30,85 +41,188 @@ class Sample_integration:
         os.makedirs('DEA')
         os.makedirs('UMAPS')
         os.makedirs('AnnData_storage')
-        # os.makedirs('Cell_type_annotation')
+        os.makedirs('h5ad_RDS_storage')
 
-
-    # The mono and co samples are concatinated in one anndata object and returned
-    def concatinate_adatas(self):
+    
+    def anndata_to_rds(self):
         self.co_adata = sc.read_h5ad(os.path.join(self.output_dir, self.co_sample,'AnnData_storage', self.co_sample+'.h5ad'))
         self.mono_adata = sc.read_h5ad(os.path.join(self.output_dir, self.mono_sample,'AnnData_storage', self.mono_sample+'.h5ad'))
-        self.co_adata.obs['batch'] = self.co_sample
-        self.mono_adata.obs['batch'] = self.mono_sample
-        return anndata.concat([self.co_adata, self.mono_adata], index_unique='-', axis=0, join='inner', 
-                              merge=None, uns_merge=None, label=None, keys=[self.co_sample, self.mono_sample],
-                                fill_value=None, pairwise=None)
+        
+        self.co_adata.obs['Sample'] = self.co_sample
+        self.mono_adata.obs['Sample'] = self.mono_sample
+
+        self.co_adata = self.co_adata.raw.to_adata()
+        self.mono_adata = self.mono_adata.raw.to_adata()
+
+        self.co_adata.write(os.path.join(self.sample_output, 'h5ad_RDS_storage', f'{self.co_sample}_raw.h5ad'))
+        self.mono_adata.write(os.path.join(self.sample_output, 'h5ad_RDS_storage', f'{self.mono_sample}_raw.h5ad'))
+        
+        mono_inpath = os.path.join(self.sample_output, 'h5ad_RDS_storage', f'{self.mono_sample}_raw.h5ad')
+        mono_outpath = os.path.join(self.sample_output, 'h5ad_RDS_storage', f'{self.mono_sample}_raw.rds')
+        
+        co_inpath = os.path.join(self.sample_output, 'h5ad_RDS_storage', f'{self.co_sample}_raw.h5ad')
+        co_outpath = os.path.join(self.sample_output, 'h5ad_RDS_storage', f'{self.co_sample}_raw.rds')
+        
+        rpy2.robjects.globalenv['mono_inpath'] = mono_inpath
+        rpy2.robjects.globalenv['mono_outpath'] = mono_outpath
+        rpy2.robjects.globalenv['co_inpath'] = co_inpath
+        rpy2.robjects.globalenv['co_outpath'] = co_outpath
+
+        r(
+            '''
+            antoseur_Converter <- function(inpath, outpath) {
+                sceasy::convertFormat(
+                inpath,
+                from = "anndata",
+                to = "seurat",
+                outFile = outpath
+                )
+            }
+            '''
+        )
+        r(
+            '''
+            initialize_and_run <- function(inpath, outpath) {
+            # Attempt to run the function once
+            tryCatch({
+                antoseur_Converter(inpath, outpath)
+            }, error = function(e) {
+                cat("First attempt failed. Retrying...\n")
+            })
+
+            # Retry the function with the same parameters
+            antoseur_Converter(inpath, outpath)
+            }
+
+            initialize_and_run(mono_inpath, mono_outpath)
+            initialize_and_run(co_inpath, co_outpath)
+            '''
+        )
+
+
+    def run_cca(self):
+        mono_outpath = os.path.join(self.sample_output, 'h5ad_RDS_storage', f'{self.mono_sample}_raw.rds')
+        co_outpath = os.path.join(self.sample_output, 'h5ad_RDS_storage', f'{self.co_sample}_raw.rds')
+        rpy2.robjects.globalenv['mono_outpath'] = mono_outpath
+        rpy2.robjects.globalenv['co_outpath'] = co_outpath
+        combined_rds_path = os.path.join(self.sample_output, 'h5ad_RDS_storage', 'combined_cca1.rds')
+        combined_h5ad_path = os.path.join(self.sample_output, 'h5ad_RDS_storage', 'combined_cca1.h5ad')
+        rpy2.robjects.globalenv['combined_rds_path'] = combined_rds_path
+        rpy2.robjects.globalenv['combined_h5ad_path'] = combined_h5ad_path
+        r(
+            '''
+            sample_files <- list(mono_outpath, co_outpath)
+            samples.list <- lapply(X=sample_files, FUN=function(x) {
+            readRDS(file=x)
+            })
+            samples.list <- lapply(X=samples.list, FUN=function(x) {
+            x <- NormalizeData(x)
+            x <- FindVariableFeatures(x, selection.method="vst", nfeatures=3000)
+            })
+            features <- SelectIntegrationFeatures(object.list = samples.list)
+            anchors <- FindIntegrationAnchors(object.list = samples.list, anchor.features = features)
+            combined <- IntegrateData(anchorset = anchors)
+            DefaultAssay(combined) <- "integrated"
+            combined <- ScaleData(combined, verbose = FALSE)
+            combined <- RunPCA(combined, npcs = 30, verbose = FALSE)
+            combined <- RunUMAP(combined, reduction = "pca", dims = 1:30)
+            combined <- FindNeighbors(combined, reduction = "pca", dims = 1:30)
+            combined <- FindClusters(combined, resolution = 0.5, algorithm=1)
+            saveRDS(combined, file = file.path(combined_rds_path))
+            sceasy::convertFormat(
+            combined,
+            from = "seurat",
+            to = "anndata",
+            outFile = combined_h5ad_path
+            )
+            '''
+        )
+
     
-
-    # harmony is ran according to the vignettes & github issues found
-    # plots are created
-    # TO DO: Create plots for solo samples in for loop and add to axis (try in Notebook)
-    def run_harmony(self, adataobj, umaptitle):
-        umaptitle = ""
-        sc.pp.pca(adataobj, n_comps=50, random_state=0)
-        data_mat = adataobj.obsm['X_pca']
-        meta_data = adataobj.obs
-        vars_use = ['batch']
-        title = self.co_sample+' '+self.mono_sample+' '+umaptitle
-        ho = hm.run_harmony(data_mat, meta_data, vars_use,
-                             theta=None, lamb=None, sigma=0.1,
-                             nclust=None, tau=0, block_size=0.5,
-                             max_iter_harmony=10, max_iter_kmeans=20,
-                             epsilon_cluster=1e-5, epsilon_harmony=1e-4,
-                             plot_convergence=True, verbose=True, reference_values=None,
-                             cluster_prior=None, random_state=0)
-        adjusted_pcs = pd.DataFrame(ho.Z_corr).T
-        adataobj.obsm['X_pca']=adjusted_pcs.values
-        sc.pp.neighbors(adataobj, n_pcs=20, random_state=0)
-        sc.tl.leiden(adataobj, resolution=0.5, random_state=0)
-        sc.tl.umap(adataobj, random_state=0)
-        fig, axs = plt.subplots(2, 2, figsize=(10,8),constrained_layout=True)
-        # change to lower case
-        cocult = adataobj[adataobj.obs['batch'] == self.co_sample]
-        sample = adataobj[adataobj.obs['batch'] == self.mono_sample]
-        sc.pl.umap(adataobj, color="batch", title=title, ax=axs[0,0], show=False)
-        sc.pl.umap(adataobj, color="leiden", title="Leidenalg UMAP", ax=axs[0,1], show=False)
-        sc.pl.umap(sample, color="leiden", title=f"{self.mono_sample} sample only", ax=axs[1,0], show=False)
-        sc.pl.umap(cocult, color="leiden", title=f"{self.co_sample} sample only", ax=axs[1,1], show=False)
-        plt.savefig(os.path.join(self.sample_output, 'UMAPS', title+'.png'))
-
-
-    # This function performs the cell selection
-    def cell_selection(self, adata_DE, adataobj, genes, dp):
-        dotdf = dp.dot_size_df
-        pos = dotdf[(dotdf[genes[0]] > .2) & (dotdf[genes[1]] > .2) & (dotdf[genes[2]] > .2)]
-        good_clusters = list(pos.index)
-        self.adata_subset = adataobj[adataobj.obs['leiden'].isin(good_clusters)]
-        self.run_harmony(self.adata_subset, "UMAPS after cell selection")
-        self.path = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}.h5ad')
-        self.adata_subset.write(self.path)
-        print(self.mono_sample, self.co_sample)
-        print(self.adata_subset)
-
-
-    # This function calls all other functions & runs them
-    def run(self):
-        self.makedirs()
-        self.run_harmony(self.concat_anndata, "UMAPS before cell selection")
-        print(self.mono_sample, self.co_sample)
-        print(self.concat_anndata)
-        self.adata_DE = self.concat_anndata.raw.to_adata()
-        deado = dea(self.adata_DE, self.sample_output, self.full_name, self.markerpath)
-        deado.perform_dea()
-        deado.basic_dea_plots()
+    def perform_cell_selection(self):
+        adata = sc.read_h5ad(os.path.join(self.sample_output, 'h5ad_RDS_storage', 'combined_cca1.h5ad'))
+        self.plot_umaps(adata, '_after_cc1')
+        adata_DE = adata.copy()
+        sc.tl.rank_genes_groups(adata_DE, 'seurat_clusters', method='wilcoxon', corr_method='bonferroni', key='wilcoxon', pts=True)
+        sc.tl.filter_rank_genes_groups(adata_DE, groupby='seurat_clusters', min_in_group_fraction=0.1, min_fold_change=1)
         if self.mono_sample == 'BL_N':
             genes = ['DCX', 'MAP2', 'RBFOX3']
         else:
             genes = ['VIM', 'S100B', 'SOX9']
-        # dp = sc.pl.rank_genes_groups_dotplot(deado.adata, deado.cluster, color_map='Blues',
-        #                                       var_names=genes, return_fig=True, show=False)
-        dp = deado.rank_genes_dotplot_overview(genes)
-        self.cell_selection(self.adata_DE, self.concat_anndata, genes, dp)
-        # We don't do anything with the integrated anndata object so don't save?
-        # self.path_full_anndata = os.path.join(self.sample_output, 'AnnData_storage', f'{self.full_name}_concat_anndata.h5ad')
-        # self.concat_anndata.write(os.path.join(self.path_full_anndata))
-        
+        clusters = range(len(adata_DE.obs['seurat_clusters'].unique()))   # find all unique clusters
+        clusters = [str(x) for x in clusters]
+        combined_dp = sc.pl.rank_genes_groups_dotplot(adata_DE, clusters, color_map='Blues',
+                                                    var_names=genes, return_fig=True, show=False)
+        combined_dp_df = combined_dp.dot_size_df
+        pos = combined_dp_df[(combined_dp_df[genes[0]] > .2) & (combined_dp_df[genes[1]] > .2) & (combined_dp_df[genes[2]] > .2)]
+        good_clusters = list(pos.index)
+        combined_subset = adata[adata.obs['seurat_clusters'].isin(good_clusters)]
+        path_to_h5ad_after_cc = os.path.join(self.sample_output, 'h5ad_RDS_storage', 'combined_after_cc.h5ad')
+        combined_subset.write(path_to_h5ad_after_cc)
+        rpy2.robjects.globalenv['path_to_h5ad_after_cc'] = path_to_h5ad_after_cc
+        self.path_to_rds_after_cc = os.path.join(self.sample_output, 'h5ad_RDS_storage', 'combined_after_cc.rds')
+        rpy2.robjects.globalenv['path_to_rds_after_cc'] = self.path_to_rds_after_cc
+        r(
+            '''
+            sceasy::convertFormat(
+            path_to_h5ad_after_cc,
+            from = "anndata",
+            to = "seurat",
+            outFile = path_to_rds_after_cc
+            )
+            '''
+        )
+    
+    def re_run_cca(self):
+        print(f'running {self.mono_sample}')
+        self.final_integrated_h5ad = os.path.join(self.sample_output, 'AnnData_storage', f'{self.mono_sample}_{self.co_sample}.h5ad')
+        rpy2.robjects.globalenv['path_to_rds_after_cc'] = self.path_to_rds_after_cc
+        rpy2.robjects.globalenv['final_integrated_h5ad'] = self.final_integrated_h5ad
+        r(
+            '''
+            combined_subset = readRDS(file=path_to_rds_after_cc)
+            combined.list <- SplitObject(combined_subset, split.by = "Sample")
+            combined.list <- lapply(X = combined.list, FUN = function(x) {
+            x <- NormalizeData(x)
+            x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 3000)
+            })
+            features <- SelectIntegrationFeatures(object.list = combined.list)
+            anchors <- FindIntegrationAnchors(object.list = combined.list, anchor.features = features)
+            re_combined <- IntegrateData(anchorset = anchors)
+            DefaultAssay(re_combined) <- "integrated"
+            re_combined <- ScaleData(re_combined, verbose = FALSE)
+            re_combined <- RunPCA(re_combined, npcs = 30, verbose = FALSE)
+            re_combined <- RunUMAP(re_combined, reduction = "pca", dims = 1:30)
+            re_combined <- FindNeighbors(re_combined, reduction = "pca", dims = 1:30)
+            re_combined <- FindClusters(re_combined, resolution = 0.5, algorithm = 1)
+            sceasy::convertFormat(
+            re_combined,
+            from = "seurat",
+            to = "anndata",
+            outFile = final_integrated_h5ad
+            )
+            '''
+        )
+        adata_subset = sc.read_h5ad(self.final_integrated_h5ad)
+        self.plot_umaps(adata_subset, title='_after_cca2')
+
+
+    def plot_umaps(self, adata, title):
+        title = self.co_sample+'_'+self.mono_sample+title
+        fig, axs = plt.subplots(2, 2, figsize=(10,8),constrained_layout=True)
+        cocult = adata[adata.obs['Sample'] == self.co_sample]
+        sample = adata[adata.obs['Sample'] == self.mono_sample]
+        sc.pl.umap(adata, color='seurat_clusters', ax=axs[0,0], title='Both samples seurat_clusters', show=False)
+        sc.pl.umap(adata, color='Sample', ax=axs[0,1], title='Both samples colored', show=False)
+        sc.pl.umap(sample, color='seurat_clusters', ax=axs[1,0], title=f'{self.mono_sample}', show=False)
+        sc.pl.umap(cocult, color='seurat_clusters', ax=axs[1,1], title=f'{self.co_sample}', show=False)
+        plt.savefig(os.path.join(self.sample_output, 'UMAPS', title+'.png'))
+
+
+    def run(self):
+        self.makedirs()
+        self.anndata_to_rds()
+        self.run_cca()
+        self.perform_cell_selection()
+        self.re_run_cca()
+
