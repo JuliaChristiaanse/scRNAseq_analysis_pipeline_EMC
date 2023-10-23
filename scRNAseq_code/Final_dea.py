@@ -13,9 +13,9 @@ class Final_Dea:
         self.adata = sc.read(subset_adata_path)
         self.output_dir = output_dir
         self.markerpath = markerpath
-        samples = self.adata.obs['batch'].unique()
+        samples = self.adata.obs['Sample'].unique()
         self.sample_name = samples[0]+'_'+samples[1]
-        self.sample_output = os.path.join(self.output_dir, f'{self.sample_name}_dea_cellrank_output')
+        self.sample_output = os.path.join(self.output_dir, 'Final_DEA_GSEA')
         self.run()
 
     
@@ -23,7 +23,6 @@ class Final_Dea:
         os.makedirs(self.sample_output)
         os.chdir(self.sample_output)
         os.makedirs('dea_output')
-        os.makedirs('cellrank_output')
         os.makedirs('anndata_storage')
 
 
@@ -38,8 +37,9 @@ class Final_Dea:
 
 
     def dea(self):
-        self.adata_DE = self.adata.raw.to_adata()
-        sc.tl.rank_genes_groups(self.adata_DE, 'batch', groups=['BL_C'],
+        # self.adata_DE = self.adata.raw.to_adata()
+        self.adata_DE = self.adata
+        sc.tl.rank_genes_groups(self.adata_DE, 'Sample', groups=['BL_C'],
                         method='wilcoxon', corr_method='bonferroni', pts=True)
         self.rank_genes_df = sc.get.rank_genes_groups_df(self.adata_DE, group=['BL_C'], key='rank_genes_groups', pval_cutoff=None, log2fc_min=None, log2fc_max=None, gene_symbols=None)
         self.rank_genes_df.to_csv(os.path.join(self.sample_output, 'dea_output', f'{self.sample_name}_rank_genes_df.tsv'), sep='\t', encoding='utf-8')

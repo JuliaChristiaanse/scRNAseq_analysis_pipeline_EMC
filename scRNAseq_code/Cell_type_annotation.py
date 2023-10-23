@@ -53,7 +53,7 @@ class Cell_Type_Annotation:
     
 
     def anndata_to_rds_transformer(self):
-        #self.adata_raw = self.adata.raw.to_adata()
+        #self.adata_raw = self.adata.raw.to_adata() change this to not raw this line will be removed
         self.path_to_raw_sample = os.path.join(self.sample_output, 'AnnData_raw_storage', f'{self.sample_name}_anndata_raw.h5ad')
         self.path_to_sample_rds = os.path.join(self.sample_output, 'Sample_RDS_storage', f'{self.sample_name}.rds')
         self.adata.write(self.path_to_raw_sample)

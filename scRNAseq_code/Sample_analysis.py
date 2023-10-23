@@ -97,7 +97,8 @@ class Sample_Analysis:
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_scrublet.h5ad')) 
         self.adata.layers['rawcounts'] = self.adata.X
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_adding_rawcounts_layer.h5ad')) 
-
+        self.adata.raw = self.adata
+        
         sc.pp.normalize_total(self.adata, target_sum=1e4) # EDIT: removed this: still included highly expressed data for now
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_normalize.h5ad'))
         
@@ -109,7 +110,7 @@ class Sample_Analysis:
 
         sc.pl.highly_variable_genes(self.adata, show=False)
         plt.savefig(os.path.join(self.sample_output, 'QC', 'Highly_variable_genes_'+self.sample_name+'.png'))
-        self.adata.raw = self.adata
+        # self.adata.raw = self.adata
         # slice adata so only HVG remain in all cells
         self.adata = self.adata[:, self.adata.var.highly_variable]
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', '7post_hvg_subset.h5ad'))
