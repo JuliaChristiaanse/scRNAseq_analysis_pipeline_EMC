@@ -30,6 +30,8 @@ palantir = "*"
 gseapy = "*"
 pytest = "*"
 bbknn = "*"
+lxml = "*"
+louvain = "*"
 
 [dev-packages]
 
