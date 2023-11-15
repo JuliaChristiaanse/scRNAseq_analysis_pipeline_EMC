@@ -2,7 +2,7 @@ import os
 import multiprocessing as mp
 from Sample_analysis import Sample_Analysis
 from Sample_integration import Sample_integration
-from Final_dea import Final_Dea
+from Final_dea_GSEA import Final_Dea
 from Cell_type_annotation import Cell_Type_Annotation
 from TI_RNA_velocity import TI_RNA_Velocity
 import time
@@ -30,8 +30,8 @@ def tirv_helper(queue, sample_name, annotated_adata_loc, tirv_output_loc, path_t
     queue.put(tirv_analysis)
 
     
-def dea_cellrank_helper(queue, subset_adata_path, output_dir, markerpath):
-    deacellrank = Final_Dea(subset_adata_path, output_dir, markerpath)
+def dea_cellrank_helper(queue, sample_name, annotated_adata_loc, final_dea_output_loc, output_dir, markerpath):
+    deacellrank = Final_Dea(sample_name, annotated_adata_loc, final_dea_output_loc, output_dir, markerpath)
     queue.put(deacellrank)
 
 
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     reference_data_dir = 'C:/Users/julia/Project/data/chunks_25'
     path_to_ref_data = 'C:/Users/julia/Project/data'
     sample_names = [folder.name for folder in os.scandir(sample_dir) if folder.is_dir()]
-    output_dir = 'C:/Users/julia/Project/CCA_implementation_raw'
+    output_dir = 'C:/Users/julia/Project/15_11_2023_re-run'
     markerpath = 'C:/Users/julia/Project/markergenes.txt'
     path_to_loomp_A = 'C:/Users/julia/Project/data/BL_A/velocyto/BL_A.loom'
     path_to_loomp_C = 'C:/Users/julia/Project/data/BL_C/velocyto/BL_C.loom'
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     #     raise ValueError('Your output directory already exists! Please rename or remove it.')
     
     # # -----------------------------------------------------------------------------------------
-    # # Step 1-3 Individual Sample Analysis
+    # Step 1-3 Individual Sample Analysis
 
     q = mp.Queue()
     processes = []
@@ -79,8 +79,8 @@ if __name__ == '__main__':
     for p in processes:
         p.join()
 
-    # # # -----------------------------------------------------------------------------------------
-    # # Steps 4 and 5 data integration & cell selection 
+    # # -----------------------------------------------------------------------------------------
+    # Steps 4 and 5 data integration & cell selection 
     
     q = mp.Queue()
     integration_process = []
@@ -130,7 +130,7 @@ if __name__ == '__main__':
         p.join()
     
     # # -----------------------------------------------------------------------------------------
-    # # Step 7 A TI and RNA velocity
+    # Step 7 A TI and RNA velocity
     
     q = mp.Queue()
     tirv_process = []
@@ -149,11 +149,11 @@ if __name__ == '__main__':
         p.join()
 
     # # -----------------------------------------------------------------------------------------
-    # #  Step 7B culture DEA and GSEA
+    #  Step 7B culture DEA and GSEA
 
-    # # for i in combis:      # use this for later !
-    # #     path = i.path
-    # #     full_name = i.full_name
+    # for i in combis:      # use this for later !
+    #     path = i.path
+    #     full_name = i.full_name
     
     # astroco_subset = os.path.join(output_dir,'BL_A_BL_C',
     #                               'AnnData_storage',
@@ -163,19 +163,21 @@ if __name__ == '__main__':
     #                               'BL_N_BL_C.h5ad')
     # subset_adatas_paths = [astroco_subset, neuroco_subset]
 
-    # q = mp.Queue()
-    # cellrank_dea_process = []
-    # object_storage = []
+    q = mp.Queue()
+    cellrank_dea_process = []
+    object_storage = []
 
-    # for subset_adata in subset_adatas_paths:
-    #     p = mp.Process(target=dea_cellrank_helper, args=[q, subset_adata, output_dir, markerpath])
-    #     cellrank_dea_process.append(p)
-    #     p.start()
-    # for p in cellrank_dea_process:
-    #     deacellrank = q.get()
-    #     object_storage.append(deacellrank)
-    # for p in cellrank_dea_process:
-    #     p.join()
+    for sample_name in names_of_samples:
+        annotated_adata_loc = os.path.join(output_dir, "Cell_type_annotation", sample_name, "AnnData_storage")
+        final_dea_output_loc = os.path.join(output_dir, "Final_DEA_GSEA", sample_name)
+        p = mp.Process(target=dea_cellrank_helper, args=[q, sample_name, annotated_adata_loc, final_dea_output_loc, output_dir, markerpath])
+        cellrank_dea_process.append(p)
+        p.start()
+    for p in cellrank_dea_process:
+        deacellrank = q.get()
+        object_storage.append(deacellrank)
+    for p in cellrank_dea_process:
+        p.join()
 
     # -----------------------------------------------------------------------------------------
 

@@ -153,6 +153,7 @@ class Sample_integration:
         clusters = [str(x) for x in clusters]
         combined_dp = sc.pl.rank_genes_groups_dotplot(adata_DE, clusters, color_map='Blues',
                                                     var_names=genes, return_fig=True, show=False)
+        combined_dp.savefig(os.path.join(self.sample_output, 'DEA', f'dotplot_{self.full_name}.png'))
         combined_dp_df = combined_dp.dot_size_df
         pos = combined_dp_df[(combined_dp_df[genes[0]] > .2) & (combined_dp_df[genes[1]] > .2) & (combined_dp_df[genes[2]] > .2)]
         good_clusters = list(pos.index)

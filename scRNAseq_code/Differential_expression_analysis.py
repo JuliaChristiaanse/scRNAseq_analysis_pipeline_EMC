@@ -19,11 +19,11 @@ class Differential_Expression_Analysis:
     # perform dea with wilcoxon & bonferroni correction
     # write results, grouped by clusters found, to csv for downstream analysis
     def perform_dea(self):
-        sc.tl.rank_genes_groups(self.adata, 'leiden', method='wilcoxon', corr_method='bonferroni', key='wilcoxon', pts=True, )
-        sc.tl.filter_rank_genes_groups(self.adata, groupby='leiden', min_in_group_fraction=0.1, min_fold_change=1)
+        sc.tl.rank_genes_groups(self.adata, 'louvain', method='wilcoxon', corr_method='bonferroni', key='wilcoxon', pts=True, )
+        sc.tl.filter_rank_genes_groups(self.adata, groupby='louvain', min_in_group_fraction=0.1, min_fold_change=1)
         sc.pl.rank_genes_groups(self.adata, sharey=False, show=False)
         plt.savefig(os.path.join(self.output_path, 'DEA', self.full_sample_name+'_DEA_wilcoxon.png'))
-        self.cluster = range(len(self.adata.obs['leiden'].unique()))
+        self.cluster = range(len(self.adata.obs['louvain'].unique()))
         self.cluster = [str(x) for x in self.cluster]
         rank_genes_df = sc.get.rank_genes_groups_df(self.adata, group=self.cluster, key='rank_genes_groups', pval_cutoff=0.5, log2fc_min=0, log2fc_max=None, gene_symbols=None)
         rank_genes_df.to_csv(os.path.join(self.output_path, 'DEA', self.full_sample_name+'_rank_genes_df.tsv'), sep='\t', encoding='utf-8')
@@ -79,20 +79,20 @@ class Differential_Expression_Analysis:
         gridspace = fig.add_gridspec(math.ceil(len(markers)/3), 3)
         for n, ticker in enumerate(markers):
             ax = fig.add_subplot(gridspace[n])
-            sc.pl.violin(adata, keys=ticker, groupby='leiden', palette='Blues', show=False, ax=ax)
+            sc.pl.violin(adata, keys=ticker, groupby='louvain', palette='Blues', show=False, ax=ax)
             ax.set_title(ticker.upper())
         plt.savefig(os.path.join(path, 'DEA', name, 'Violin_Plots'+self.full_sample_name+'.png'))
 
     
     # Create heatmap
     def heatmap(self, path, markers, name, adata):
-        sc.pl.heatmap(adata, var_names=markers, groupby='leiden', cmap='Blues', show=False)
+        sc.pl.heatmap(adata, var_names=markers, groupby='louvain', cmap='Blues', show=False)
         plt.savefig(os.path.join(path, 'DEA', name, 'Heatmap'+self.full_sample_name+'.png'))
 
 
     # Create tracksplot
     def tracksplot(self, path, markers, name, adata):
-        sc.pl.tracksplot(adata, markers, 'leiden', log=False, color_map='Blues', show=False)
+        sc.pl.tracksplot(adata, markers, 'louvain', log=False, color_map='Blues', show=False)
         plt.savefig(os.path.join(path, 'DEA', name, 'Tracksplot'+self.full_sample_name+'.png'))
 
     

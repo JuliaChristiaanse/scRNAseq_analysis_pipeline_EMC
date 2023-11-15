@@ -400,7 +400,7 @@ class Cell_Type_Annotation:
     def visualize_annotation(self):
         adata = sc.read_h5ad(self.annotated_anndata_storage)
         adata.obs['seurat_clusters_annotated'] = adata.obs['kriegstein.seurat.custom.clusters.mean']
-        sc.pl.umap(adata, color=['seurat_clusters', 'seurat_clusters_annotated'], legend_loc='on data', 
+        sc.pl.umap(adata, color=['seurat_clusters', 'seurat_clusters_annotated'], legend_loc='right margin', 
                    legend_fontsize='medium', legend_fontweight='normal',show=False)
         plt.savefig(os.path.join(self.sample_output, f"{self.sample_name}_figures_output", f"{self.sample_name}_UMAP.png"))
 

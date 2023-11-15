@@ -74,6 +74,9 @@ class Sample_Analysis:
 
     # Detect doublets in dataset EDIT: 14-8-2023 --> fixing the umap doublet issue
     def detect_doublets(self):
+        # check if a new adata object is needed for scrublet with copy=True
+        # EDIT 15-11-2023 --> with normalize_variance, If True, normalize the data such that each gene has a variance of 1.
+        # I did this, but I believe the results are not copied. Also, the resulting figures dont look as nice
         sc.external.pp.scrublet(self.adata, adata_sim=None, batch_key=None, sim_doublet_ratio=2.0, expected_doublet_rate=0.06, stdev_doublet_rate=0.02, synthetic_doublet_umi_subsampling=1.0, knn_dist_metric='euclidean',
                          normalize_variance=True, log_transform=False, mean_center=True, n_prin_comps=30, use_approx_neighbors=True, get_doublet_neighbor_parents=False, n_neighbors=None, threshold=None,
                            verbose=True, copy=False, random_state=0) # auto-set threshold. Do not manually generate doublets.
@@ -90,15 +93,14 @@ class Sample_Analysis:
 
     # Subset, Regress out bad stuff and normalize, find variablefeatures and do some other stuff like SCTransform
     def normalization_HVG(self):
-        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'pre_scrublet.h5ad'))
-        
+        self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'pre_scrublet.h5ad'))
         self.detect_doublets()
         
-        # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_scrublet.h5ad')) 
+        self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_scrublet.h5ad')) 
         self.adata.layers['rawcounts'] = self.adata.X
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_adding_rawcounts_layer.h5ad')) 
+        # self.adata.raw = self.adata
         self.adata.raw = self.adata
-        
         sc.pp.normalize_total(self.adata, target_sum=1e4) # EDIT: removed this: still included highly expressed data for now
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_normalize.h5ad'))
         
@@ -142,10 +144,10 @@ class Sample_Analysis:
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_knn.h5ad'))
         sc.tl.umap(self.adata, random_state=0)
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_umap.h5ad'))
-        sc.tl.leiden(self.adata, resolution=0.5, random_state=0)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
+        sc.tl.louvain(self.adata, resolution=0.5, random_state=0)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
         # self.adata.write(os.path.join(self.sample_output, 'AnnData_test', 'post_leiden.h5ad'))
-        title=f'Unsupervised Leiden Cluster {self.sample_name}'
-        sc.pl.umap(self.adata, color=['leiden'], title="", legend_loc='on data', legend_fontsize=8, show=False)
+        title=f'Unsupervised Louvain Cluster {self.sample_name}'
+        sc.pl.umap(self.adata, color=['louvain'], title="", legend_loc='on data', legend_fontsize=8, show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Unsupervised_UMAP_'+self.sample_name+'.png'))
        
         # EDIT 14-8-2023: Now we have to re-add/integrate the doublets on top of our newly created
@@ -158,11 +160,11 @@ class Sample_Analysis:
         # print(self.doublets_included)
 
         # Method 1
-        # This method simply re-runs pca, neighbors, umap & leiden on the merged adata's and plots the result
+        # This method simply re-runs pca, neighbors, umap & louvain on the merged adata's and plots the result
         sc.pp.pca(self.doublets_included, random_state=0)
         sc.pp.neighbors(self.doublets_included, n_neighbors=10, n_pcs=20, random_state=0) # calculate neighbors with 20 npc's
         sc.tl.umap(self.doublets_included, random_state=0)
-        sc.tl.leiden(self.doublets_included, resolution=0.5, random_state=0)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
+        sc.tl.louvain(self.doublets_included, resolution=0.5, random_state=0)      # resolution default for scanpy = 1. resolution used in seurat = 0.5.
         title=f'Doublets detected in dataset {self.sample_name}'
         sc.pl.umap(self.doublets_included, color=['doublet_score', 'doublet_info'], title=title, legend_loc='right margin', legend_fontsize=8, show=False)
         plt.savefig(os.path.join(self.sample_output, 'Clusters', 'Doublet_umap_'+self.sample_name+'.png'))

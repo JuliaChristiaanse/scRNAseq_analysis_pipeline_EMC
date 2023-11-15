@@ -32,15 +32,15 @@ class TI_RNA_Velocity:
     def __init__(self, sample_name, annotated_adata_loc, tirv_output_loc, path_to_loomp_C, mono_loomp_files):
         self.sample_name = sample_name
         self.sample_output = tirv_output_loc
-        #self.makedirs(self.sample_output)
+        self.makedirs(self.sample_output)
         self.adata = self.open_and_process_data(sample_name=self.sample_name,
                                                 annotated_adata_loc=annotated_adata_loc,
                                                 path_to_loomp_C=path_to_loomp_C,
                                                 mono_loomp_files=mono_loomp_files)
         self.gene_set = self.define_marker_gene_set(self.sample_name)
-        #self.perform_RNA_velocity(self.adata, self.gene_set)
+        self.perform_RNA_velocity(self.adata, self.gene_set)
         root_cell =  self.find_root_cell(adata=self.adata, gene_set=self.gene_set)
-        #self.transform_an_to_seur(annotated_adata_loc=annotated_adata_loc, sample_name=self.sample_name)
+        self.transform_an_to_seur(annotated_adata_loc=annotated_adata_loc, sample_name=self.sample_name)
         self.perform_TI(root_cell=root_cell, gene_set=self.gene_set)
 
 
@@ -118,7 +118,7 @@ class TI_RNA_Velocity:
         vk.compute_transition_matrix()
         ck = cr.kernels.ConnectivityKernel(adata)
         ck.compute_transition_matrix()
-        vk.plot_projection(color='annotated_clusters', show=False, save=os.path.join(self.sample_output, 'Figures_output', 'RNA_splicing_projection.png'))
+        vk.plot_projection(color='annotated_clusters', show=False, legend_loc='right margin', save=os.path.join(self.sample_output, 'Figures_output', 'RNA_splicing_projection.png'))
 
     
     def transform_an_to_seur(self, annotated_adata_loc, sample_name):
@@ -170,7 +170,7 @@ class TI_RNA_Velocity:
             ggplot2::ggsave(file.path(figure_output, paste0("sample_partition.png")), plot = p1)
             cds <- learn_graph(cds, use_partition=FALSE)
             cds <- order_cells(cds, root_cells=root_cell)
-            p2 <- plot_cells(cds, color_cells_by="pseudotime", label_branch_points=FALSE, label_leaves=FALSE)
+            p2 <- plot_cells(cds, color_cells_by="pseudotime", label_branch_points=FALSE,label_leaves=FALSE)
             ggplot2::ggsave(file.path(figure_output, paste0("cds_pseudotime.png")), plot = p2)
             rowData(cds)$gene_name <- rownames(cds)
             rowData(cds)$gene_short_name <- rowData(cds)$gene_name
