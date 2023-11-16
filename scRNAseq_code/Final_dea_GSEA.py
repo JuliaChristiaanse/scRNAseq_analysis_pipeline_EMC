@@ -135,13 +135,25 @@ class Final_Dea:
         pos_terms_to_graph = out_df.tail(5).Term
         pre_res.plot(terms=pos_terms_to_graph, ofname=os.path.join(sample_output, 'GSEA', 'positive_NES_pathways.png'))
         pre_res.plot(terms=neg_terms_to_graph, ofname=os.path.join(sample_output, 'GSEA', 'negative_NES_pathways.png'))
-        pre_res.res2d = pre_res.res2d.sort_values('FDR q-val')
-        nodes, edges = gseapy.enrichment_map(pre_res.res2d)
+        combined_terms = list(pos_terms_to_graph) + list(neg_terms_to_graph)
+        smaller_df = pre_res.res2d[pre_res.res2d['Term'].isin(combined_terms)]
+        sci = SciPalette()
+        NbDr = sci.create_colormap()
+        gseapy.dotplot(df=smaller_df,column='NES',y='Term', cmap=NbDr,figsize=(3,5),
+                        show_ring=True, ofname=os.path.join(sample_output, 'GSEA', 'pos_neg_NES_dotplot.png'))
+        self.networkplot(df=smaller_df, sample_output=sample_output, sort_on='NES', cutoff=2, name='pos_neg_NES')
+        self.networkplot(df=pre_res.res2d, sample_output=sample_output, sort_on='FDR q-val', cutoff=0.05, name='smallest_q_val')
+        
+
+        
+    def networkplot(self, df, sort_on, cutoff, sample_output, name):
+        df = df.sort_values(sort_on)
+        nodes, edges = gseapy.enrichment_map(df, column=sort_on, cutoff=cutoff)
         G = nx.from_pandas_edgelist(edges,
                             source='src_idx',
                             target='targ_idx',
                             edge_attr=['jaccard_coef', 'overlap_coef', 'overlap_genes'])
-        fig, ax = plt.subplots(figsize=(20, 8))
+        fig, ax = plt.subplots(figsize=(40, 20))
         pos=nx.layout.spiral_layout(G)
         nx.draw_networkx_nodes(G,
                             pos=pos,
@@ -156,8 +168,8 @@ class Final_Dea:
                             pos=pos,
                             width=list(map(lambda x: x*10, edge_weight)),
                             edge_color='#CDDBD4')
-        plt.savefig(os.path.join(sample_output, 'GSEA', 'network_plot.png'))
-        
+        plt.savefig(os.path.join(sample_output, 'GSEA', f'network_plot_{name}.png'))
+
 
 
     def ora(self, adata, gmt, sample_output):

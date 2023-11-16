@@ -37,7 +37,6 @@ def dea_cellrank_helper(queue, sample_name, annotated_adata_loc, final_dea_outpu
 
 
 if __name__ == '__main__':
-
     # Create directories and check if they exist.
     sample_dir = 'C:/Users/julia/scRNAseq_Analysis_project/samples_dir'
     reference_data_dir = 'C:/Users/julia/Project/data/chunks_25'
@@ -108,7 +107,7 @@ if __name__ == '__main__':
 
     # # -----------------------------------------------------------------------------------------
     # # Step 6 celltype annotation
-    #names_of_samples=['BL_A_BL_C', 'BL_N_BL_C'] # REMOVE this before running whole pipeline
+    # names_of_samples=['BL_A_BL_C', 'BL_N_BL_C'] # REMOVE this before running whole pipeline
     q = mp.Queue()
     annotation_process = []
     annotated_anndatas = []
@@ -149,19 +148,7 @@ if __name__ == '__main__':
         p.join()
 
     # # -----------------------------------------------------------------------------------------
-    #  Step 7B culture DEA and GSEA
-
-    # for i in combis:      # use this for later !
-    #     path = i.path
-    #     full_name = i.full_name
-    
-    # astroco_subset = os.path.join(output_dir,'BL_A_BL_C',
-    #                               'AnnData_storage',
-    #                               'BL_A_BL_C.h5ad')
-    # neuroco_subset = os.path.join(output_dir,'BL_N_BL_C',
-    #                               'AnnData_storage',
-    #                               'BL_N_BL_C.h5ad')
-    # subset_adatas_paths = [astroco_subset, neuroco_subset]
+    # # Step 7B culture DEA and GSEA
 
     q = mp.Queue()
     cellrank_dea_process = []
