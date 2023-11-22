@@ -79,7 +79,7 @@ if __name__ == '__main__':
         p.join()
 
     # # -----------------------------------------------------------------------------------------
-    # Steps 4 and 5 data integration & cell selection 
+    #Steps 4 and 5 data integration & cell selection 
     
     q = mp.Queue()
     integration_process = []
@@ -107,7 +107,7 @@ if __name__ == '__main__':
 
     # # -----------------------------------------------------------------------------------------
     # # Step 6 celltype annotation
-    # names_of_samples=['BL_A_BL_C', 'BL_N_BL_C'] # REMOVE this before running whole pipeline
+    #names_of_samples=['BL_A_BL_C', 'BL_N_BL_C'] # REMOVE this before running whole pipeline
     q = mp.Queue()
     annotation_process = []
     annotated_anndatas = []

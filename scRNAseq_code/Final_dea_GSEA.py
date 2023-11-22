@@ -125,30 +125,36 @@ class Final_Dea:
         
 
     def gsea(self, adata, gmt, sample_output):
-        df = sc.get.rank_genes_groups_df(adata, group='BL_C', key='rank_genes_groups', pval_cutoff=0.05, log2fc_min=None, log2fc_max=None, gene_symbols=None)
-        df['Rank'] = -np.log10(df.pvals_adj)*df.logfoldchanges
-        df = df.sort_values('Rank', ascending=False)
-        ranking = df[['names', 'Rank']]
+        df = sc.get.rank_genes_groups_df(adata, group='BL_C', key='rank_genes_groups', pval_cutoff=None, log2fc_min=None, log2fc_max=None, gene_symbols=None)
+        df = df.sort_values('logfoldchanges', ascending=False)
+        ranking = df[['names', 'logfoldchanges']]
         pre_res = gseapy.prerank(rnk = ranking, gene_sets = gmt, seed = 0)
-        out_df = pre_res.res2d.sort_values('NES')
-        neg_terms_to_graph = out_df.iloc[0:5].Term
-        pos_terms_to_graph = out_df.tail(5).Term
-        pre_res.plot(terms=pos_terms_to_graph, ofname=os.path.join(sample_output, 'GSEA', 'positive_NES_pathways.png'))
-        pre_res.plot(terms=neg_terms_to_graph, ofname=os.path.join(sample_output, 'GSEA', 'negative_NES_pathways.png'))
-        combined_terms = list(pos_terms_to_graph) + list(neg_terms_to_graph)
+        # out_df = pre_res.res2d.sort_values('NES')
+        pre_res.res2d.rename(columns={pre_res.res2d.columns[8]: "gene_perc" }, inplace = True)
+        pre_res.res2d['gene_perc'] = pre_res.res2d['gene_perc'].str.replace('%', '')
+        pre_res.res2d['gene_perc'] = pre_res.res2d[['gene_perc']].astype('float')
+        filter_gene_perc = pre_res.res2d[pre_res.res2d.gene_perc>10]
+        q_val_sort = filter_gene_perc.sort_values('FDR q-val')
+        pos = q_val_sort[q_val_sort.NES>0]
+        neg = q_val_sort[q_val_sort.NES<0]
+        pos = pos.sort_values(['FDR q-val','NOM p-val', 'NES'], ascending=[True, False, False])
+        neg = neg.sort_values(['FDR q-val', 'NOM p-val','NES'], ascending=[True, True, True])
+        pos_NES_15 = pos.head(15).Term
+        neg_NES_15 = neg.head(15).Term
+        pos_plot = pre_res.plot(terms=pos_NES_15[0:5], ofname=os.path.join(sample_output, 'GSEA', 'positive_NES_pathways.png'))
+        neg_plot = pre_res.plot(terms=neg_NES_15[0:5], ofname=os.path.join(sample_output, 'GSEA', 'negative_NES_pathways.png'))
+        combined_terms = list(pos_NES_15) + list(neg_NES_15)
         smaller_df = pre_res.res2d[pre_res.res2d['Term'].isin(combined_terms)]
         sci = SciPalette()
         NbDr = sci.create_colormap()
-        gseapy.dotplot(df=smaller_df,column='NES',y='Term', cmap=NbDr,figsize=(3,5),
+        gseapy.dotplot(df=smaller_df,column='NES',y='Term', cmap=NbDr,figsize=(3,12), top_term=30,
                         show_ring=True, ofname=os.path.join(sample_output, 'GSEA', 'pos_neg_NES_dotplot.png'))
-        self.networkplot(df=smaller_df, sample_output=sample_output, sort_on='NES', cutoff=2, name='pos_neg_NES')
-        self.networkplot(df=pre_res.res2d, sample_output=sample_output, sort_on='FDR q-val', cutoff=0.05, name='smallest_q_val')
-        
+        # self.networkplot(df=smaller_df, sample_output=sample_output, sort_on='NES', cutoff=2, name='NES')        
 
         
     def networkplot(self, df, sort_on, cutoff, sample_output, name):
         df = df.sort_values(sort_on)
-        nodes, edges = gseapy.enrichment_map(df, column=sort_on, cutoff=cutoff)
+        nodes, edges = gseapy.enrichment_map(df, column=sort_on, top_term=30, cutoff=cutoff)
         G = nx.from_pandas_edgelist(edges,
                             source='src_idx',
                             target='targ_idx',
@@ -173,18 +179,25 @@ class Final_Dea:
 
 
     def ora(self, adata, gmt, sample_output):
-        df = sc.get.rank_genes_groups_df(adata, group='BL_C', key='rank_genes_groups', pval_cutoff=0.05, log2fc_min=None, log2fc_max=None, gene_symbols=None)
-        genes_up_reg = df[df.logfoldchanges>0]
-        genes_down_reg = df[df.logfoldchanges<0]
+        df = sc.get.rank_genes_groups_df(adata, group='BL_C', key='rank_genes_groups', pval_cutoff=None, log2fc_min=None, log2fc_max=None, gene_symbols=None)
+        sign_genes = df[df.pvals_adj<0.05]
+        genes_up_reg = sign_genes[sign_genes.logfoldchanges>0]
+        genes_down_reg = sign_genes[sign_genes.logfoldchanges<0]
         enr_up = gseapy.enrichr(genes_up_reg.names, gene_sets=gmt, outdir=None)
+        enr_pos = enr_up.res2d.sort_values(['Adjusted P-value','Combined Score'], ascending=[True, True])
+        up = gseapy.dotplot(enr_pos, figsize=(3,12), title="Up", top_term=30, cmap = plt.cm.autumn_r, ofname=os.path.join(sample_output, 'ORA', 'enr_up_dotplot.png'))
+        
         enr_dw = gseapy.enrichr(genes_down_reg.names, gene_sets=gmt, outdir=None)
-        enr_up.res2d['UP_OR_DOWN'] = 'UP'
-        enr_dw.res2d['UP_OR_DOWN'] = 'DOWN'
-        enr_res = pd.concat([enr_up.res2d, enr_dw.res2d])
-        enr_res = enr_res.sort_values('Adjusted P-value')
+        enr_neg = enr_dw.res2d.sort_values(['Adjusted P-value','Combined Score'], ascending=[True, True])
+        down = gseapy.dotplot(enr_neg, figsize=(3,12), title="Down", top_term=30, cmap = plt.cm.winter_r, size=5, ofname=os.path.join(sample_output, 'ORA', 'enr_down_dotplot.png'))
+
+        enr_pos['UP_OR_DOWN'] = 'UP'
+        enr_neg['UP_OR_DOWN'] = 'DOWN'
+        enr_res = pd.concat([enr_pos, enr_neg])
+        enr_res = enr_res.sort_values(['Adjusted P-value', 'Combined Score'], ascending=[True, False])        
         sci = SciPalette()
         NbDr = sci.create_colormap()
-        gseapy.dotplot(enr_res,figsize=(3,5), x='UP_OR_DOWN', x_order = ["UP","DOWN"],
+        gseapy.dotplot(enr_res,figsize=(3,5), x='UP_OR_DOWN', x_order = ["UP","DOWN"], top_term=30,
                         title="GO_BP", cmap = NbDr.reversed(), size=3, show_ring=True,
                           ofname=os.path.join(sample_output, 'ORA', 'up_and_down_pathways_dotplot.png'))
         
