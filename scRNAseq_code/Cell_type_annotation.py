@@ -1,3 +1,10 @@
+"""
+Author:         	Julia Christiaanse
+Date:               29-11-2023
+Script:             Class Cell_Type_Annotation
+Python version:     3.10.9
+Imports & settings:
+"""
 import scanpy as sc
 import os
 import rpy2
@@ -7,22 +14,6 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects import r
 import anndata
 from matplotlib import pyplot as plt
-
-## Optional installations if you're new to R:
-## Make sure to install the latest version of R
-
-# utils = importr('utils')
-# utils.install_packages('BiocManager')
-# r('BiocManager::install("SingleR")')
-# r('BiocManager::install("celldex")')
-# r('BiocManager::install("tidyverse")')
-# r('BiocManager::install("hdf5r")')
-# r('devtools::install_github("cellgeni/sceasy")')
-# r('BiocManager::install(c("SingleCellExperiment", "LoomExperiment"))')
-# r('BiocManager::install("scuttle")')
-# r('BiocManager::install("scran")')
-# r('BiocManager::install("reticulate")')
-
 r('library(Seurat)')
 r('library(SingleR)')
 r('library(scuttle)')
@@ -32,8 +23,21 @@ r('use_virtualenv("C:/Users/julia/.virtualenvs/project-VjJne3mB")')
 
 
 class Cell_Type_Annotation:
+    """
+    Class Cell_Type_Annotation performs step 6 of the pipeline, which is cell type annotation.
+    """
 
     def __init__(self, sample_name, adata_loc, output_dir, sample_output, reference_data_dir, path_to_ref_data):
+        """__init__ of class Cell_Type_Annotation.
+
+        Args:
+            sample_name (String): name of the sample
+            adata_loc (String): Path to integrated AnnData object
+            output_dir (String): Path to master output directory
+            sample_output (String): Path to the sample-specific output sub-folder within output_dir
+            reference_data_dir (String): Path to all reference data
+            path_to_ref_data (String): Path to folder in reference_data_dir where Kriegstein chunks are stored
+        """
         self.sample_name = sample_name
         self.adata = sc.read_h5ad(os.path.join(adata_loc, f'{self.sample_name}.h5ad'))
         self.output_dir = output_dir
@@ -42,21 +46,28 @@ class Cell_Type_Annotation:
         self.path_to_ref_data = path_to_ref_data
         self.run()
 
+
     def makedirs(self):
+        """
+        Generate necessary sub-folders within the master folder, sample_output.
+        """
         os.makedirs(self.sample_output)
         os.chdir(self.sample_output)
         os.makedirs('AnnData_storage')
         os.makedirs('AnnData_raw_storage')
         os.makedirs('Sample_RDS_storage')
-        #os.makedirs('Annotated_RDS_storage')
         os.makedirs(f'{self.sample_name}_figures_output')
     
 
     def anndata_to_rds_transformer(self):
-        #self.adata_raw = self.adata.raw.to_adata() change this to not raw this line will be removed
+        """
+        Paths to store the AnnData object and Seurat object are defined here.
+        Transforms the AnnData object to a Seurat object, and stores it in 'Sample_RDS_storage'
+        """
         self.path_to_raw_sample = os.path.join(self.sample_output, 'AnnData_raw_storage', f'{self.sample_name}_anndata_raw.h5ad')
         self.path_to_sample_rds = os.path.join(self.sample_output, 'Sample_RDS_storage', f'{self.sample_name}.rds')
         self.adata.write(self.path_to_raw_sample)
+        # Inherrit Python variables to R.
         rpy2.robjects.globalenv['path_to_raw_sample'] = self.path_to_raw_sample
         rpy2.robjects.globalenv['path_to_sample_rds'] = self.path_to_sample_rds
         r(
@@ -72,22 +83,16 @@ class Cell_Type_Annotation:
             outFile = path_to_sample_rds
             )
         }
-
-        # Try to run the code, and catch any errors
         while (!success) {
         tryCatch({
             run_conversion()
             # If no error occurred, set the success flag to TRUE and exit the loop
             success <- TRUE
         }, error = function(err) {
-            # Handle the error as needed
             cat("An error occurred:", conditionMessage(err), "\n")
-            # You can add more code here to handle the error, if necessary
             cat("Retrying...\n")
             })
         }
-
-        # Continue with the rest of your program after the code has run successfully
         cat("Code executed successfully!\n")
         '''
         )
@@ -95,7 +100,13 @@ class Cell_Type_Annotation:
 
 
     def annotate_with_singler(self):
+        """ 
+        **R code obtained from previous R pipeline**
+        The R code loops over every Kriegstein chunk and annotates with SingleR.
+        The result is 25 annotated RDS objects of the sample.
+        """
         kriegstein_annotated_output_dir = os.path.join(self.sample_output, "Annotated_RDS_storage")
+        # Inherrit Python variables to R.
         rpy2.robjects.globalenv['kriegstein_annotated_output_dir'] = kriegstein_annotated_output_dir
         rpy2.robjects.globalenv['kriegstein_data_dir'] = self.path_to_ref_data
         rpy2.robjects.globalenv['sample_files'] = self.path_to_sample_rds
@@ -106,7 +117,7 @@ class Cell_Type_Annotation:
             getGenes <- function(kriegstein_data_dir) {
             genesFile <- file.path(kriegstein_data_dir, "kriegstein_genes.csv")
             if (!file.exists(genesFile)) {
-                stop(genesFile, "Does not exist girl")
+                stop(genesFile, "Does not exist")
             } else {
                 genes <- utils::read.table(genesFile, sep = "\\t", col.names = "gene")
                 return(genes$gene[2:length(genes$gene)])
@@ -171,8 +182,14 @@ class Cell_Type_Annotation:
 
 
     def visualize_annotated_data(self):
+        """
+        **R code taken from previous R pipeline**
+        Highest SingleR annotation score is selected out of the 25 Kriegstein Chunks.
+        Annotation is visualized and the annotated Seurat object is saved to disk.
+        """
         figures_output_dir = os.path.join(self.sample_output, f"{self.sample_name}_figures_output")
         kriegstein_annotated_input_dir = os.path.join(self.sample_output, "Annotated_RDS_storage")
+        # Inherrit Python variables to R.
         rpy2.robjects.globalenv['sample_files'] = os.path.join(self.sample_output, 'Sample_RDS_storage', f'{self.sample_name}.rds')
         rpy2.robjects.globalenv['sample_names'] = self.sample_name
         rpy2.robjects.globalenv['output_dir'] = figures_output_dir
@@ -189,7 +206,7 @@ class Cell_Type_Annotation:
             annotations_to_plot <- c(annotations_to_plot)
             '''
         )
-        # Access custom.meta.tsv file
+        # Access all Kriegstein metadata
         r(
             '''getMeta <- function(kriegstein_data_dir) {
             metaFile <- file.path(kriegstein_data_dir, "custom.meta.tsv")
@@ -201,7 +218,7 @@ class Cell_Type_Annotation:
             }
             '''
         )
-        # generate the color pallete function
+        # Generate color palette for plotting
         r('''generate_color_palette <- function(type = 'mixed', n = NULL) {
         if (type == 'mixed') {
             palette <- c("#000000", "#DF536B", "#61D04F", "#2297E6", "#28E2E5",
@@ -238,8 +255,7 @@ class Cell_Type_Annotation:
         palette
         '''
         )
-        # Find the max score annotation and use that as the true annotation
-        # Make the heatmap
+        # Create the scores heatmap
         r(
             '''
             visualize_kriegstein_annotated_data <- function(
@@ -296,7 +312,6 @@ class Cell_Type_Annotation:
         write.csv2(combined$mean.scores, file = file.path(output_dir, paste0("Kriegstein_Pearson.correlation.max_", sample, "_", anno ,".csv")))
         return(combined)
         })
-        ##################################### ^Works ##########################################
 
         # save Kriegstein cluster labels into Seurat object (rds)
         for (sample in sample_names){
@@ -343,6 +358,7 @@ class Cell_Type_Annotation:
         }
         '''
         )
+        # Call function above
         r(
             '''
             visualize_kriegstein_annotated_data(sample_names=sample_names,
@@ -358,6 +374,10 @@ class Cell_Type_Annotation:
         
     
     def annotated_rds_to_anndata_transformer(self):
+        """
+        Transforms the now annotated Seurat object back to an AnnData object.
+        """
+        # Inherrit Python variables to R.
         rpy2.robjects.globalenv['sample_file'] = os.path.join(self.sample_output, 'Sample_RDS_storage', f'{self.sample_name}.rds')
         self.annotated_anndata_storage = os.path.join(self.sample_output, 'AnnData_storage', f'{self.sample_name}_annotated.h5ad')
         rpy2.robjects.globalenv['anndata_storage'] = self.annotated_anndata_storage
@@ -367,7 +387,6 @@ class Cell_Type_Annotation:
             # Initialize a flag to track whether the code succeeded
             success <- FALSE
             
-            # Define a function to run the code
             run_conversion <- function() {
             sceasy::convertFormat(
                 sample_data,
@@ -377,27 +396,28 @@ class Cell_Type_Annotation:
                 )
             }
 
-            # Try to run the code, and catch any errors
             while (!success) {
             tryCatch({
                 run_conversion()
                 # If no error occurred, set the success flag to TRUE and exit the loop
                 success <- TRUE
             }, error = function(err) {
-                # Handle the error as needed
                 cat("An error occurred:", conditionMessage(err), "\n")
-                # You can add more code here to handle the error, if necessary
                 cat("Retrying...\n")
                 })
             }
-
-            # Continue with the rest of your program after the code has run successfully
             cat("Code executed successfully!\n")
             '''
         )
 
 
     def visualize_annotation(self):
+        """
+        Loads in the annotated AnnData object.
+        Renames the large annotation column name to something smaller.
+        Plots a UMAP with the annotations.
+        Saves the figure to {self.sample_name}_figures_output.
+        """
         adata = sc.read_h5ad(self.annotated_anndata_storage)
         adata.obs['seurat_clusters_annotated'] = adata.obs['kriegstein.seurat.custom.clusters.mean']
         sc.pl.umap(adata, color=['seurat_clusters', 'seurat_clusters_annotated'], legend_loc='right margin', 
@@ -406,6 +426,11 @@ class Cell_Type_Annotation:
 
 
     def run(self):
+        """
+        Runs all class functions in chronological order. 
+        Created for aesthetic purposes, to avoid running every function in the __init__.
+        A final message notifies the user that this step of the pipeline has been completed.
+        """
         self.makedirs()
         self.anndata_to_rds_transformer()
         self.annotate_with_singler()
