@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
     # # -----------------------------------------------------------------------------------------
     # # Step 6 celltype annotation
-    # names_of_samples=['BL_A_BL_C', 'BL_N_BL_C'] # REMOVE this before running whole pipeline
+    # names_of_samples=['BL_A_BL_C', 'BL_N_BL_C'] # uncomment this line if you want to run step 6-7B seperately.
     q = mp.Queue()
     annotation_process = []
     annotated_anndatas = []

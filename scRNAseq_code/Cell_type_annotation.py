@@ -416,7 +416,7 @@ class Cell_Type_Annotation:
         Loads in the annotated AnnData object.
         Renames the large annotation column name to something smaller.
         Plots a UMAP with the annotations.
-        Saves the figure to {self.sample_name}_figures_output.
+        Saves the figure to the correct output directory
         """
         adata = sc.read_h5ad(self.annotated_anndata_storage)
         adata.obs['seurat_clusters_annotated'] = adata.obs['kriegstein.seurat.custom.clusters.mean']
